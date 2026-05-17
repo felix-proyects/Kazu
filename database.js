@@ -20,6 +20,9 @@ try {
 try {
     db.prepare("ALTER TABLE users ADD COLUMN last_rob TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
 } catch (e) {}
+try {
+    db.prepare("ALTER TABLE users ADD COLUMN last_rw TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
+} catch (e) {}
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -33,7 +36,8 @@ db.exec(`
         last_work TEXT DEFAULT '1970-01-01T00:00:00.000Z',
         last_slut TEXT DEFAULT '1970-01-01T00:00:00.000Z',
         last_flip TEXT DEFAULT '1970-01-01T00:00:00.000Z',
-        last_rob TEXT DEFAULT '1970-01-01T00:00:00.000Z'
+        last_rob TEXT DEFAULT '1970-01-01T00:00:00.000Z',
+        last_rw TEXT DEFAULT '1970-01-01T00:00:00.000Z'
     );
     CREATE TABLE IF NOT EXISTS chats (
         jid TEXT PRIMARY KEY,
@@ -78,17 +82,18 @@ export const database = {
             last_work = '1970-01-01T00:00:00.000Z',
             last_slut = '1970-01-01T00:00:00.000Z',
             last_flip = '1970-01-01T00:00:00.000Z',
-            last_rob = '1970-01-01T00:00:00.000Z'
+            last_rob = '1970-01-01T00:00:00.000Z',
+            last_rw = '1970-01-01T00:00:00.000Z'
         } = d;
         db.prepare(`
-            INSERT INTO users (jid, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (jid, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(jid) DO UPDATE SET
             wallet = excluded.wallet, bank = excluded.bank, genre = excluded.genre,
             marry = excluded.marry, last_claim = excluded.last_claim, last_crime = excluded.last_crime,
             last_work = excluded.last_work, last_slut = excluded.last_slut, last_flip = excluded.last_flip,
-            last_rob = excluded.last_rob
-        `).run(c, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob);
+            last_rob = excluded.last_rob, last_rw = excluded.last_rw
+        `).run(c, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw);
     },
     getChat: async (j) => {
         return db.prepare('SELECT * FROM chats WHERE jid = ?').get(j) || null;
