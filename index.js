@@ -229,9 +229,11 @@ async function startBot() {
         logger(m, conn);
         await antiLinkHandler(conn, m);
 
-        if (isCmd) {
-            const cmd = global.commands.get(commandText) || Array.from(global.commands.values()).find(c => c.aliases && c.aliases.includes(commandText));
-            if (cmd) {
+        if (isCmd || m.noPrefix) {
+            const checkCmd = commandText || body.trim().split(/ +/).shift().toLowerCase();
+            const cmd = global.commands.get(checkCmd) || Array.from(global.commands.values()).find(c => (c.alias && c.alias.includes(checkCmd)) || (c.aliases && c.aliases.includes(checkCmd)));
+            
+            if (cmd && (isCmd || cmd.noPrefix)) {
                 if (cmd.cooldown) {
                     if (!global.db.data.users[m.sender].cooldowns) {
                         global.db.data.users[m.sender].cooldowns = {};
@@ -245,7 +247,7 @@ async function startBot() {
                     global.db.data.users[m.sender].cooldowns[cmd.name] = now;
                 }
                 try {
-                    await cmd.run(conn, m, { args, text, prefix, command: commandText });
+                    await cmd.run(conn, m, args, prefix, checkCmd, text);
                 } catch (cmdErr) {
                     console.error(cmdErr);
                 }
