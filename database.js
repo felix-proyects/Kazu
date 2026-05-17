@@ -133,7 +133,12 @@ export const database = {
     listCharacter: async (g, s, i, n, p) => {
         const c = normalizeJid(s);
         const t = db.transaction(() => {
-            db.prepare('INSERT INTO gacha_shop (group_jid, seller_jid, character_id, character_name, sale_price) VALUES (?, ?, ?, ?, ?)').run(g, c, i, n, p);
+            db.prepare(`
+                INSERT INTO gacha_shop (group_jid, seller_jid, character_id, character_name, sale_price) 
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(group_jid, character_id) DO UPDATE SET 
+                seller_jid = excluded.seller_jid, character_name = excluded.character_name, sale_price = excluded.sale_price, listed_at = CURRENT_TIMESTAMP
+            `).run(g, c, i, n, p);
             db.prepare('UPDATE gacha_ownership SET status = "en_venta" WHERE group_jid = ? AND character_id = ?').run(g, i);
         });
         t();
