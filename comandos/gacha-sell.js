@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
-import { database } from '../database.js';
+import { database, query } from '../database.js';
 
 const gachaPath = path.resolve('./config/database/gacha/gacha_list.json');
 const baseGroup = "120363423871589037@g.us";
@@ -25,12 +25,12 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* \`Uso Incorrecto\`\n• Usa el comando de la siguiente manera:\n> .sell (ID) (Precio)`);
             }
 
-            // Sanitizar el precio eliminando signos, comas y puntos (Ej: 12,000 -> 12000)
+            // Limpiar formato de precio (Ej: 12,000 -> 12000)
             precioRaw = precioRaw.replace(/[\$,\.]/g, '');
             const price = parseInt(precioRaw);
 
             if (isNaN(price) || price <= 0) {
-                return m.reply(`*${config.visuals.emoji2}* Por favor, ingresa un precio numérico que sea válido.`);
+                return m.reply(`*${config.visuals.emoji2}* Por favor, ingresa un precio numérico válido.`);
             }
 
             if (!fs.existsSync(gachaPath)) return m.reply(`*${config.visuals.emoji2}* Error: DB Gacha no encontrada.`);
@@ -38,13 +38,13 @@ const sellCommand = {
             const plantillaPersonajes = rawData[baseGroup];
 
             if (!plantillaPersonajes[pjId]) {
-                return m.reply(`*${config.visuals.emoji2}* El personaje con ID \`${pjId}\` no existe en la plantilla.`);
+                return m.reply(`*${config.visuals.emoji2}* El personaje con ID \`${pjId}\` no existe.`);
             }
 
-            // Consultar el dueño actual directo en SQLite
+            // Obtener el dueño actual
             const infoPj = await database.getCharacterOwner(group, pjId);
             
-            // Formatear las JID tal cual lo hace tu función interna normalizeJid
+            // Normalización idéntica a la interna de la DB
             const rawUser = userJid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
             const rawOwner = infoPj?.user_jid ? infoPj.user_jid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net' : null;
 
@@ -52,23 +52,25 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece o no está en tu colección!`);
             }
 
-            // Verificar si ya se encuentra en la tienda para evitar el crash del INSERT repetido
-            const tiendaActual = await database.listShop(group);
-            const yaEstaEnTienda = tiendaActual.some(item => item.character_id === pjId);
-
-            if (infoPj.status === 'en_venta' || yaEstaEnTienda) {
-                return m.reply(`*${config.visuals.emoji2}* Este personaje ya se encuentra publicado en el mercado.`);
-            }
-
             const pjPlantilla = plantillaPersonajes[pjId];
             const minPrice = (pjPlantilla.value || 0) + 1000;
 
             if (price < minPrice) {
-                return m.reply(`*${config.visuals.emoji2}* El precio mínimo de venta para este personaje es de *$${minPrice.toLocaleString()}* coins.`);
+                return m.reply(`*${config.visuals.emoji2}* El precio mínimo de venta para este personaje es *$${minPrice.toLocaleString()}* coins.`);
             }
 
-            // Ejecutar la transacción segura de tu base de datos
-            await database.listCharacter(group, userJid, pjId, pjPlantilla.name, price);
+            // Bypass de la transacción tradicional usando INSERT OR REPLACE directo a la DB
+            // Evita el error de clave duplicada y actualiza el estado del harem de forma segura
+            await query(`
+                INSERT OR REPLACE INTO gacha_shop (group_jid, seller_jid, character_id, character_name, sale_price) 
+                VALUES (?, ?, ?, ?, ?)
+            `, [group, rawUser, pjId, pjPlantilla.name, price]);
+
+            await query(`
+                UPDATE gacha_ownership 
+                SET status = 'en_venta' 
+                WHERE group_jid = ? AND character_id = ?
+            `, [group, pjId]);
 
             let txt = `*${config.visuals.emoji3} \`MERCADO PÚBLICO\` ${config.visuals.emoji3}*\n\n`;
             txt += `» Has puesto en venta a *${pjPlantilla.name}* correctamente.\n`;
@@ -80,7 +82,7 @@ const sellCommand = {
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error interno al procesar la venta en la base de datos.`);
+            m.reply(`*${config.visuals.emoji2}* Error al procesar el reclamo en la base de datos.`);
         }
     }
 };
