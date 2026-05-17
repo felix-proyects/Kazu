@@ -10,10 +10,10 @@ const robCommand = {
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             let who;
-            if (m.isGroup) {
-                who = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : (m.quoted && m.quoted.sender ? m.quoted.sender : null);
-            } else {
-                who = m.quoted && m.quoted.sender ? m.quoted.sender : null;
+            if (m.quoted && m.quoted.sender) {
+                who = m.quoted.sender;
+            } else if (m.mentionedJid && m.mentionedJid[0]) {
+                who = m.mentionedJid[0];
             }
 
             if (!who) {
@@ -49,7 +49,7 @@ const robCommand = {
 
             const victimWallet = victim.wallet || 0;
             if (victimWallet <= 0) {
-                return m.reply(`*❁ \`BILLETERA VACÍA\` ❁*\n\n» @${who.split('@')[0]} no lleva dinero encima en este momento. Sus fondos están a salvo en el banco.`, null, { mentions: [who] });
+                return conn.sendMessage(m.chat, { text: `*❁ \`BILLETERA VACÍA\` ❁*\n\n» @${who.split('@')[0]} no lleva dinero encima en este momento. Sus fondos están a salvo en el banco.`, mentions: [who] }, { quoted: m });
             }
 
             const timestamps = [
@@ -75,7 +75,7 @@ const robCommand = {
             if (victimDifference < victimRequiredInactivity) {
                 const remainingInactivity = victimRequiredInactivity - victimDifference;
                 const minLeft = Math.ceil(remainingInactivity / (1000 * 60));
-                return m.reply(`*❁ \`OBJETIVO ALERTA\` ❁*\n\n» @${who.split('@')[0]} ha estado activo recientemente en el bot.\n» Debes esperar a que baje la guardia y esté completamente inactivo (Faltan aprox. *${minLeft}m*).`, null, { mentions: [who] });
+                return conn.sendMessage(m.chat, { text: `*❁ \`OBJETIVO ALERTA\` ❁*\n\n» @${who.split('@')[0]} ha estado activo recientemente en el bot.\n» Debes esperar a que baje la guardia y esté completamente inactivo (Faltan aprox. *${minLeft}m*).`, mentions: [who] }, { quoted: m });
             }
 
             thief.last_rob = now.toISOString();
