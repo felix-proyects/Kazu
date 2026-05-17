@@ -139,7 +139,7 @@ export const database = {
                 ON CONFLICT(group_jid, character_id) DO UPDATE SET 
                 seller_jid = excluded.seller_jid, character_name = excluded.character_name, sale_price = excluded.sale_price, listed_at = CURRENT_TIMESTAMP
             `).run(g, c, i, n, p);
-            db.prepare('UPDATE gacha_ownership SET status = "en_venta" WHERE group_jid = ? AND character_id = ?').run(g, i);
+            db.prepare("UPDATE gacha_ownership SET status = 'en_venta' WHERE group_jid = ? AND character_id = ?").run(g, i);
         });
         t();
     },
@@ -150,7 +150,7 @@ export const database = {
         const t = db.transaction(() => {
             db.prepare('UPDATE users SET wallet = wallet - ? WHERE jid = ?').run(p, c);
             db.prepare('UPDATE users SET wallet = wallet + ? WHERE jid = ?').run(p, s.seller_jid);
-            db.prepare('UPDATE gacha_ownership SET user_jid = ?, status = "domado" WHERE group_jid = ? AND character_id = ?').run(c, g, i);
+            db.prepare("UPDATE gacha_ownership SET user_jid = ?, status = 'domado' WHERE group_jid = ? AND character_id = ?").run(c, g, i);
             db.prepare('DELETE FROM gacha_shop WHERE group_jid = ? AND character_id = ?').run(g, i);
         });
         t();
