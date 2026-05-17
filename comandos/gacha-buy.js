@@ -10,7 +10,7 @@ const buyCommand = {
     name: 'buy',
     alias: ['obtener', 'comprar'],
     category: 'gacha',
-    desc: 'Compra personajes puestos en venta por otros usuarios del grupo.',
+    desc: 'Compra personajes puestos en venta en el mercado usando su ID o su nombre completo.',
     noPrefix: true,
     isGroup: true,
 
@@ -18,21 +18,37 @@ const buyCommand = {
         try {
             const group = m.chat;
             const buyerJid = m.sender;
-            const pjId = args[0];
 
-            if (!pjId) return m.reply(`*${config.visuals.emoji2}* Indica la ID del personaje que quieres comprar del mercado.`);
+            if (!args || args.length === 0) {
+                return m.reply(`*${config.visuals.emoji2}* Indica la ID o el Nombre completo del personaje que quieres comprar.`);
+            }
 
             if (!fs.existsSync(gachaPath)) return m.reply(`*${config.visuals.emoji2}* Error: DB Gacha no encontrada.`);
             const rawData = JSON.parse(fs.readFileSync(gachaPath, 'utf-8'));
             const plantillaPersonajes = rawData[baseGroup];
 
             const shopItems = await database.listShop(group);
-            const item = shopItems.find(i => i.character_id === pjId);
-
-            if (!item) {
-                return m.reply(`*${config.visuals.emoji2}* El personaje con la ID \`${pjId}\` no se encuentra disponible en el mercado de este grupo.`);
+            if (!shopItems || shopItems.length === 0) {
+                return m.reply(`*${config.visuals.emoji2}* El mercado de este grupo está vacío en este momento.`);
             }
 
+            let item = null;
+            const inputBusqueda = args.join(' ').trim();
+
+            // 1. Si el usuario ingresó un número, buscamos directamente por ID
+            if (!isNaN(args[0])) {
+                item = shopItems.find(i => i.character_id === args[0]);
+            } 
+            // 2. Si no es un número, buscamos por el nombre completo (insensible a mayúsculas/minúsculas)
+            else {
+                item = shopItems.find(i => i.character_name.toLowerCase().replace(/\s+/g, ' ') === inputBusqueda.toLowerCase().replace(/\s+/g, ' '));
+            }
+
+            if (!item) {
+                return m.reply(`*${config.visuals.emoji2}* El personaje "*${inputBusqueda}*" no se encuentra disponible en el mercado de este grupo.`);
+            }
+
+            const pjId = item.character_id;
             const sellerJid = item.seller_jid;
             const price = Number(item.sale_price);
 
@@ -72,12 +88,11 @@ const buyCommand = {
             await m.reply(txt);
 
             try {
-                const sellerCleanId = actualSellerJid.split('@')[0];
                 await conn.sendMessage(actualSellerJid, { 
                     text: `*${config.visuals.emoji3} \`AVISO DE VENTA\` ${config.visuals.emoji3}*\n\n» Tu personaje *${item.character_name}* (\`${pjId}\`) fue comprado en el mercado.\n*✰ Ganancia »* +$${price.toLocaleString()} coins en tu billetera.` 
                 });
             } catch (err) {
-                console.log("No se pudo enviar el mensaje privado al vendedor, probablemente tenga chat cerrado.");
+                console.log("No se pudo enviar el mensaje privado al vendedor.");
             }
 
         } catch (e) {
