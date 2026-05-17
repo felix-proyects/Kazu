@@ -1,67 +1,62 @@
-import { config } from '../config.js';
 import { database } from '../database.js';
+import { config } from '../config.js';
 
 const dailyCommand = {
     name: 'daily',
-    alias: ['diario', 'recompensa'],
+    alias: ['diario', 'claim', 'recompensa'],
     category: 'economy',
-    desc: 'Reclama tu recompensa diaria y aumenta tu racha para ganar más.',
+    desc: 'Reclama tu recompensa diaria con multiplicador por racha de días.',
     noPrefix: true,
-    isGroup: true,
 
-    run: async (conn, m) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            const userJid = m.sender;
-            const ahora = Date.now();
-            const cooldown = 24 * 60 * 60 * 1000;
+            await conn.sendMessage(m.chat, { react: { text: '⌛', key: m.key } });
 
-            let userDb = await database.getUser(userJid);
-            if (!userDb) userDb = { wallet: 0, bank: 0, last_claim: JSON.stringify({ time: 0, streak: 0 }) };
+            const user = global.db.data.users[m.sender];
+            const now = new Date();
+            const lastClaim = new Date(user.last_claim || '1970-01-01T00:00:00.000Z');
 
-            let dailyData;
-            try {
-                dailyData = JSON.parse(userDb.last_claim);
-                if (typeof dailyData !== 'object' || dailyData === null) throw new Error();
-            } catch {
-                dailyData = { time: 0, streak: 0 };
+            const difference = now - lastClaim;
+            const oneDay = 24 * 60 * 60 * 1000;
+            const twoDays = 48 * 60 * 60 * 1000;
+
+            if (difference < oneDay) {
+                const timeLeft = oneDay - difference;
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                
+                await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
+                return m.reply(`*${config.visuals.emoji2}* Ya has reclamado tu recompensa del día de hoy.\n\nRegresa en: *${hours}h ${minutes}m*`);
             }
 
-            const tiempoPasado = ahora - dailyData.time;
-
-            if (tiempoPasado < cooldown) {
-                const restante = cooldown - tiempoPasado;
-                const horas = Math.floor(restante / 3600000);
-                const minutos = Math.floor((restante % 3600000) / 60000);
-                const segundos = Math.floor((restante % 60000) / 1000);
-                return m.reply(`*${config.visuals.emoji2}* \`RECOMPENSA RECLAMADA\`\n\n> Vuelve en **${horas}h ${minutos}m ${segundos}s** para tu siguiente racha.`);
+            if (!user.streak || difference >= twoDays) {
+                user.streak = 1;
+            } else {
+                user.streak += 1;
             }
 
-            if (tiempoPasado > cooldown * 2) {
-                dailyData.streak = 0;
-            }
+            const baseReward = 35000;
+            const increment = 10000;
+            const finalReward = baseReward + ((user.streak - 1) * increment);
 
-            dailyData.streak += 1;
-            dailyData.time = ahora;
+            user.wallet = (user.wallet || 0) + finalReward;
+            user.last_claim = now.toISOString();
 
-            const baseCoins = 35000;
-            const extraPorDia = 10000;
-            const recompensa = baseCoins + (extraPorDia * (dailyData.streak - 1));
+            await database.saveUser(m.sender, user);
 
-            userDb.wallet = Number(userDb.wallet || 0) + recompensa;
-            userDb.last_claim = JSON.stringify(dailyData);
+            let txt = `*${config.visuals.emoji1}* ¡RECOMPENSA DIARIA RECLAMADA! *${config.visuals.emoji1}*\n\n`;
+            txt += `*${config.visuals.emoji3}* Has ganado: *💵 ${finalReward.toLocaleString()} coins*\n`;
+            txt += `*${config.visuals.emoji3}* Racha actual: *🔥 ${user.streak} día(s) consecutivo(s)*\n`;
+            txt += `*${config.visuals.emoji3}* Tu cartera actual: *💵 ${user.wallet.toLocaleString()} coins*\n\n`;
+            txt += `Sigue reclamando mañana para obtener *💵 ${(finalReward + increment).toLocaleString()} coins*.`;
 
-            let texto = `*${config.visuals.emoji3}* \`RECOMPENSA DIARIA\` *${config.visuals.emoji3}*\n\n`;
-            texto += `¡Has reclamado tu recompensa del *Día ${dailyData.streak}*!\n`;
-            texto += `*${config.visuals.emoji} Ganaste:* ¥${recompensa.toLocaleString()}\n`;
-            texto += `*${config.visuals.emoji4} Racha actual:* ${dailyData.streak} días\n\n`;
-            texto += `> *Cartera:* ¥${userDb.wallet.toLocaleString()}`;
-
-            await database.saveUser(userJid, userDb);
-            await conn.sendMessage(m.chat, { text: texto }, { quoted: m });
+            await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+            return m.reply(txt);
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error al reclamar tu recompensa diaria.`);
+            await conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } });
+            m.reply(`*${config.visuals.emoji2}* Ocurrió un error interno al procesar tu recompensa.`);
         }
     }
 };
