@@ -211,8 +211,47 @@ async function startBot() {
             m.quoted = null;
         }
 
+        let body = '';
+        if (msgType === 'conversation') body = m.message.conversation;
+        else if (msgType === 'imageMessage') body = m.message.imageMessage.caption;
+        else if (msgType === 'videoMessage') body = m.message.videoMessage.caption;
+        else if (msgType === 'extendedTextMessage') body = m.message.extendedTextMessage.text;
+        else if (msgType === 'buttonsResponseMessage') body = m.message.buttonsResponseMessage.selectedButtonId;
+        else if (msgType === 'listResponseMessage') body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+        else if (msgType === 'templateButtonReplyMessage') body = m.message.templateButtonReplyMessage.selectedId;
+
+        const prefix = config.prefix || '/';
+        const isCmd = body.startsWith(prefix);
+        const commandText = isCmd ? body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase() : '';
+        const args = body.trim().split(/ +/).slice(1);
+        const text = args.join(' ');
+
         logger(m, conn);
         await antiLinkHandler(conn, m);
+
+        if (isCmd) {
+            const cmd = global.commands.get(commandText) || Array.from(global.commands.values()).find(c => c.aliases && c.aliases.includes(commandText));
+            if (cmd) {
+                if (cmd.cooldown) {
+                    if (!global.db.data.users[m.sender].cooldowns) {
+                        global.db.data.users[m.sender].cooldowns = {};
+                    }
+                    const now = Date.now();
+                    const expirationTime = (global.db.data.users[m.sender].cooldowns[cmd.name] || 0) + (cmd.cooldown * 1000);
+                    if (now < expirationTime) {
+                        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+                        return m.reply(`Por favor espera ${timeLeft} segundos antes de usar el comando *${cmd.name}* nuevamente.`);
+                    }
+                    global.db.data.users[m.sender].cooldowns[cmd.name] = now;
+                }
+                try {
+                    await cmd.run(conn, m, { args, text, prefix, command: commandText });
+                } catch (cmdErr) {
+                    console.error(cmdErr);
+                }
+            }
+        }
+
         await pixelHandler(conn, m, config);
 
         try {
