@@ -11,12 +11,14 @@ const crimeCommand = {
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const user = global.db.data.users[m.sender];
-            const now = Date.now();
-            const cooldownTime = 7 * 60 * 1000;
-            const lastCrime = user.last_crime_time || 0;
+            const now = new Date();
+            const lastCrime = new Date(user.last_crime || '1970-01-01T00:00:00.000Z');
 
-            if (now - lastCrime < cooldownTime) {
-                const timeLeft = cooldownTime - (now - lastCrime);
+            const difference = now - lastCrime;
+            const cooldownTime = 7 * 60 * 1000;
+
+            if (difference < cooldownTime) {
+                const timeLeft = cooldownTime - difference;
                 const minutes = Math.floor(timeLeft / (1000 * 60));
                 const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
                 return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${minutes}m ${seconds}s* antes de cometer otro crimen.`);
@@ -29,12 +31,13 @@ const crimeCommand = {
                 const reward = Math.floor(Math.random() * (frase.max - frase.min + 1)) + frase.min;
 
                 user.wallet = (user.wallet || 0) + reward;
-                user.last_crime_time = now;
+                user.last_crime = now.toISOString();
+
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`CRIMEN EXITOSO\` ❁*\n\n`;
                 txt += `» ${frase.text}\n`;
-                txt += `*✰ Ganaste »* 💵 ${reward.toLocaleString()} coins\n\n`;
+                txt += `*✰ Ganaste »* $${reward.toLocaleString()} coins\n\n`;
                 txt += `> ¡Escapa antes de que la policía te atrapé!`;
 
                 return m.reply(txt);
@@ -43,12 +46,13 @@ const crimeCommand = {
                 const loss = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
 
                 user.wallet = Math.max(0, (user.wallet || 0) - loss);
-                user.last_crime_time = now;
+                user.last_crime = now.toISOString();
+
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`CRIMEN FALLIDO\` ❁*\n\n`;
                 txt += `» ${fraseFallo}\n`;
-                txt += `*✰ Perdiste »* 💵 ${loss.toLocaleString()} coins\n\n`;
+                txt += `*✰ Perdiste »* $${loss.toLocaleString()} coins\n\n`;
                 txt += `> ¡Te han atrapado y tuviste que pagar la fianza!`;
 
                 return m.reply(txt);
