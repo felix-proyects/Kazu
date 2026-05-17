@@ -11,11 +11,14 @@ const crimeCommand = {
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const user = global.db.data.users[m.sender];
-            const now = new Date();
-            const lastCrime = new Date(user.last_crime || '1970-01-01T00:00:00.000Z');
+            const now = Date.now();
 
-            const difference = now - lastCrime;
+            if (!user.last_crime_time) {
+                user.last_crime_time = 0;
+            }
+
             const cooldownTime = 7 * 60 * 1000;
+            const difference = now - user.last_crime_time;
 
             if (difference < cooldownTime) {
                 const timeLeft = cooldownTime - difference;
@@ -24,6 +27,8 @@ const crimeCommand = {
                 return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${minutes}m ${seconds}s* antes de cometer otro crimen.`);
             }
 
+            user.last_crime_time = now;
+
             const chance = Math.random() < 0.65;
 
             if (chance) {
@@ -31,8 +36,6 @@ const crimeCommand = {
                 const reward = Math.floor(Math.random() * (frase.max - frase.min + 1)) + frase.min;
 
                 user.wallet = (user.wallet || 0) + reward;
-                user.last_crime = now.toISOString();
-
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`CRIMEN EXITOSO\` ❁*\n\n`;
@@ -46,8 +49,6 @@ const crimeCommand = {
                 const loss = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
 
                 user.wallet = Math.max(0, (user.wallet || 0) - loss);
-                user.last_crime = now.toISOString();
-
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`CRIMEN FALLIDO\` ❁*\n\n`;
