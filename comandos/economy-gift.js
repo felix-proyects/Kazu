@@ -10,10 +10,10 @@ const giftCommand = {
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             let who;
-            if (m.isGroup) {
-                who = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : (m.quoted && m.quoted.sender ? m.quoted.sender : null);
-            } else {
-                who = m.quoted && m.quoted.sender ? m.quoted.sender : null;
+            if (m.quoted && m.quoted.sender) {
+                who = m.quoted.sender;
+            } else if (m.mentionedJid && m.mentionedJid[0]) {
+                who = m.mentionedJid[0];
             }
 
             if (!who) {
@@ -50,9 +50,10 @@ const giftCommand = {
             let receiverUser = global.db.data.users[who];
             if (!receiverUser) {
                 receiverUser = await database.getUser(who);
-                if (!receiverUser) {
-                    receiverUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z' };
-                }
+            }
+
+            if (!receiverUser) {
+                receiverUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z', last_rob: '1970-01-01T00:00:00.000Z' };
             }
 
             senderUser.wallet = senderWallet - amount;
