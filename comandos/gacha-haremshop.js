@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const haremShop = {
     name: 'haremshop',
@@ -8,19 +9,15 @@ const haremShop = {
     noPrefix: true,
     isGroup: true,
 
-    run: async (conn, m, args) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const group = m.chat;
 
-            if (!global.db.data.chats[group].shop || Object.keys(global.db.data.chats[group].shop).length === 0) {
-                return m.reply(`*${config.visuals.emoji2}* El mercado de este grupo está vacío.`);
-            }
+            const items = await database.listShop(group);
 
-            let shopData = global.db.data.chats[group].shop;
-            let items = Object.keys(shopData).map(id => ({
-                id,
-                ...shopData[id]
-            }));
+            if (!items || items.length === 0) {
+                return m.reply(`*${config.visuals.emoji2}* El mercado de este grupo está vacío en este momento.`);
+            }
 
             let page = args[0] ? parseInt(args[0]) : 1;
             if (isNaN(page) || page < 1) page = 1;
@@ -33,20 +30,20 @@ const haremShop = {
 
             if (currentItems.length === 0) return m.reply(`*${config.visuals.emoji2}* Página no encontrada.`);
 
-            let txt = `*${config.visuals.emoji3} \`MERCADO DE PERSONAJES\` ${config.visuals.emoji3}*\n`;
-            txt += `*Página:* ${page} de ${totalPages}\n\n`;
+            let txt = `*${config.visuals.emoji3} \`MERCADO DE PERSONAJES\` ${config.visuals.emoji3}*\n\n`;
+            txt += `*✰ Página »* ${page} de ${totalPages}\n\n`;
 
             let mentions = [];
             currentItems.forEach((item, i) => {
-                const sellerClean = item.seller.replace(/:.*@/g, '@');
+                const sellerClean = item.seller_jid.replace(/:.*@/g, '@');
                 const sellerId = sellerClean.split('@')[0];
-                txt += `*${start + i + 1}.* ${item.name} (\`${item.id}\`)\n`;
+                txt += `*${start + i + 1}.* ${item.character_name} (\`${item.character_id}\`)\n`;
                 txt += `  ᗒ *Vendedor:* @${sellerId}\n`;
-                txt += `  ᗒ *Precio:* ¥${item.salePrice.toLocaleString()}\n\n`;
-                if (!mentions.includes(sellerClean)) mentions.push(sellerClean);
+                txt += `  ᗒ *Precio:* $${item.sale_price.toLocaleString()} coins\n\n`;
+                if (!mentions.includes(item.seller_jid)) mentions.push(item.seller_jid);
             });
 
-            txt += `\n> Usa el comando *#buy (ID)* para comprar un personaje.`;
+            txt += `> Usa el comando \`.buy (ID)\` para comprar un personaje listado.`;
 
             await conn.sendMessage(m.chat, { 
                 text: txt, 
