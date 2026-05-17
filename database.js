@@ -8,6 +8,15 @@ db.pragma('synchronous = normal');
 try {
     db.prepare("ALTER TABLE users ADD COLUMN last_crime TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
 } catch (e) {}
+try {
+    db.prepare("ALTER TABLE users ADD COLUMN last_work TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
+} catch (e) {}
+try {
+    db.prepare("ALTER TABLE users ADD COLUMN last_slut TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
+} catch (e) {}
+try {
+    db.prepare("ALTER TABLE users ADD COLUMN last_flip TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
+} catch (e) {}
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -17,7 +26,10 @@ db.exec(`
         genre TEXT DEFAULT 'No definido',
         marry TEXT DEFAULT NULL,
         last_claim TEXT DEFAULT '1970-01-01T00:00:00.000Z',
-        last_crime TEXT DEFAULT '1970-01-01T00:00:00.000Z'
+        last_crime TEXT DEFAULT '1970-01-01T00:00:00.000Z',
+        last_work TEXT DEFAULT '1970-01-01T00:00:00.000Z',
+        last_slut TEXT DEFAULT '1970-01-01T00:00:00.000Z',
+        last_flip TEXT DEFAULT '1970-01-01T00:00:00.000Z'
     );
     CREATE TABLE IF NOT EXISTS chats (
         jid TEXT PRIMARY KEY,
@@ -58,15 +70,19 @@ export const database = {
             genre = 'No definido', 
             marry = null, 
             last_claim = '1970-01-01T00:00:00.000Z',
-            last_crime = '1970-01-01T00:00:00.000Z'
+            last_crime = '1970-01-01T00:00:00.000Z',
+            last_work = '1970-01-01T00:00:00.000Z',
+            last_slut = '1970-01-01T00:00:00.000Z',
+            last_flip = '1970-01-01T00:00:00.000Z'
         } = d;
         db.prepare(`
-            INSERT INTO users (jid, wallet, bank, genre, marry, last_claim, last_crime)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (jid, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(jid) DO UPDATE SET
             wallet = excluded.wallet, bank = excluded.bank, genre = excluded.genre,
-            marry = excluded.marry, last_claim = excluded.last_claim, last_crime = excluded.last_crime
-        `).run(c, wallet, bank, genre, marry, last_claim, last_crime);
+            marry = excluded.marry, last_claim = excluded.last_claim, last_crime = excluded.last_crime,
+            last_work = excluded.last_work, last_slut = excluded.last_slut, last_flip = excluded.last_flip
+        `).run(c, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip);
     },
     getChat: async (j) => {
         return db.prepare('SELECT * FROM chats WHERE jid = ?').get(j) || null;
