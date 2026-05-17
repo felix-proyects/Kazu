@@ -27,10 +27,10 @@ const claimCommand = {
             }
 
             if (!userDb) {
-                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z', last_rob: '1970-01-01T00:00:00.000Z', last_rw: '1970-01-01T00:00:00.000Z' };
+                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z', last_rob: '1970-01-01T00:00:00.000Z', last_rw: '1970-01-01T00:00:00.000Z', last_claim_pj: '1970-01-01T00:00:00.000Z' };
             }
 
-            const lastClaimTime = new Date(userDb.last_slut || '1970-01-01T00:00:00.000Z').getTime();
+            const lastClaimTime = new Date(userDb.last_claim_pj || '1970-01-01T00:00:00.000Z').getTime();
             const tiempoPasado = ahora.getTime() - lastClaimTime;
 
             if (tiempoPasado < tiempoEspera) {
@@ -74,7 +74,7 @@ const claimCommand = {
             }
 
             userDb.wallet = wallet - pjPlantilla.value;
-            userDb.last_slut = ahora.toISOString();
+            userDb.last_claim_pj = ahora.toISOString();
 
             global.db.data.users[userJid] = userDb;
 
