@@ -54,7 +54,21 @@ const balTopCommand = {
                 txt += `  *✰ Total Neto »* $${total.toLocaleString()} coins\n\n`;
             });
 
-            txt += `> ¡Usa los comandos de economía para que seas el más rico!`;
+            let footer = `> ¡Usa los comandos de economía para que seas el más rico!`;
+
+            if (page === 1) {
+                const userPosition = users.findIndex(u => u.jid === m.sender) + 1;
+
+                if (userPosition === 1) {
+                    footer = `> ¡Felicidades, disfruta de tu riqueza!`;
+                } else if (userPosition === 2) {
+                    footer = `> ¡Supera al de arriba y siéntete orgulloso de ti mismo!`;
+                } else if (userPosition === 3) {
+                    footer = `> ¡Solo te falta alcanzar esos dos para ser el más rico!`;
+                }
+            }
+
+            txt += footer;
 
             return conn.sendMessage(m.chat, { text: txt, mentions }, { quoted: m });
 
