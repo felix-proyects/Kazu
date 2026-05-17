@@ -1,69 +1,268 @@
-import { database } from '../database.js';
-import { crimeFrases, failFrases } from './frases/crimen.js';
+import { 
+    makeWASocket, 
+    useMultiFileAuthState, 
+    fetchLatestBaileysVersion, 
+    makeCacheableSignalKeyStore, 
+    DisconnectReason,
+    Browsers,
+    downloadMediaMessage
+} from 'todleys';
+import P from 'pino';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { createInterface } from 'readline';
+import chalk from 'chalk';
+import CFonts from 'cfonts';
 
-const crimeCommand = {
-    name: 'crime',
-    alias: ['crimen', 'robar'],
-    category: 'economy',
-    desc: 'Comete un crimen para ganar coins.',
-    noPrefix: true,
+import { config } from './config.js';
+import { logger } from './config/print.js';
+import { pixelHandler } from './pixel.js';
+import { database } from './database.js';
 
-    run: async (conn, m, args, usedPrefix, commandName, text) => {
-        try {
-            const user = global.db.data.users[m.sender];
-            const now = Date.now();
-            
-            if (!user.last_crime_time) {
-                user.last_crime_time = 0;
+import { detectHandler } from './comandos/grupos-detect.js';
+import antiLinkHandler from './comandos/grupos-antilink.js';
+import welcomeHandler from './comandos/grupos-welcome.js';
+import { loadAllSubBots } from './sockets/index.js';
+import { loadAllMoodBots } from './sockets/SubMoods/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const rl = createInterface({ input: process.stdin, output: process.stdout });
+const question = (text) => new Promise((resolve) => rl.question(text, resolve));
+
+global.commands = new Map();
+global.lastMessageMap = new Map();
+let startTime = Date.now();
+
+const tmpDir = path.join(__dirname, 'tmp');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+setInterval(() => {
+    try {
+        const files = fs.readdirSync(tmpDir);
+        const now = Date.now();
+        for (const file of files) {
+            const filePath = path.join(tmpDir, file);
+            const stat = fs.statSync(filePath);
+            if (now - stat.mtimeMs > 5 * 60 * 1000) {
+                fs.unlinkSync(filePath);
             }
-
-            const cooldownTime = 7 * 60 * 1000;
-            const difference = now - user.last_crime_time;
-
-            if (difference < cooldownTime) {
-                const timeLeft = cooldownTime - difference;
-                const minutes = Math.floor(timeLeft / (1000 * 60));
-                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${minutes}m ${seconds}s* antes de cometer otro crimen.`);
-            }
-
-            user.last_crime_time = now;
-
-            const chance = Math.random() < 0.65;
-
-            if (chance) {
-                const frase = crimeFrases[Math.floor(Math.random() * crimeFrases.length)];
-                const reward = Math.floor(Math.random() * (frase.max - frase.min + 1)) + frase.min;
-
-                user.wallet = (user.wallet || 0) + reward;
-                await database.saveUser(m.sender, user);
-
-                let txt = `*❁ \`CRIMEN EXITOSO\` ❁*\n\n`;
-                txt += `» ${frase.text}\n`;
-                txt += `*✰ Ganaste »* $${reward.toLocaleString()} coins\n\n`;
-                txt += `> ¡Escapa antes de que la policía te atrapé!`;
-
-                return m.reply(txt);
-            } else {
-                const fraseFallo = failFrases[Math.floor(Math.random() * failFrases.length)];
-                const loss = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
-
-                user.wallet = Math.max(0, (user.wallet || 0) - loss);
-                await database.saveUser(m.sender, user);
-
-                let txt = `*❁ \`CRIMEN FALLIDO\` ❁*\n\n`;
-                txt += `» ${fraseFallo}\n`;
-                txt += `*✰ Perdiste »* $${loss.toLocaleString()} coins\n\n`;
-                txt += `> ¡Te han atrapado y tuviste que pagar la fianza!`;
-
-                return m.reply(txt);
-            }
-
-        } catch (e) {
-            console.error(e);
-            m.reply('Ocurrió un error interno al procesar el comando.');
         }
+    } catch (e) {}
+}, 60 * 1000);
+
+global.db = {
+    data: {
+        chats: {},
+        users: {},
+        characters: {},
+        settings: {}
     }
 };
 
-export default crimeCommand;
+global.loadCommands = async () => {
+    const commandsPath = path.resolve(__dirname, 'comandos');
+    if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
+    global.commands.clear();
+    const files = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+    await Promise.all(files.map(async (file) => {
+        try {
+            const filePath = path.join(commandsPath, file);
+            const fileUrl = pathToFileURL(filePath).href;
+            const module = await import(`${fileUrl}?update=${Date.now()}`);
+            if (module.default && module.default.name) {
+                global.commands.set(module.default.name.toLowerCase(), module.default);
+            }
+        } catch (e) {}
+    }));
+};
+
+async function startBot() {
+    const sessionDir = './sesion_bot';
+    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir);
+
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const { version } = await fetchLatestBaileysVersion();
+
+    const conn = makeWASocket({
+        version,
+        printQRInTerminal: false,
+        logger: P({ level: 'silent' }),
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })),
+        },
+        browser: Browsers.ubuntu('Chrome'),
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: false,
+        getMessage: async (key) => { return null }
+    });
+
+    conn.getAdminStatus = async (groupJid, senderJid) => {
+        const botJid = conn.authState?.creds?.me?.id;
+        const meta = await conn.groupMetadata(groupJid).catch(() => null);
+        if (!meta || !Array.isArray(meta.participants)) {
+            return { isAdmin: false, isBotAdmin: false };
+        }
+        const normalize = (j) => j.split('@')[0].split(':')[0];
+        const senderNorm = normalize(senderJid);
+        const botNorm = normalize(botJid);
+        const isAdmin = meta.participants.some(p => normalize(p.id || p.jid) === senderNorm && (p.admin === 'admin' || p.admin === 'superadmin'));
+        const isBotAdmin = meta.participants.some(p => normalize(p.id || p.jid) === botNorm && (p.admin === 'admin' || p.admin === 'superadmin'));
+        return { isAdmin, isBotAdmin };
+    };
+
+    await global.loadCommands();
+
+    try {
+        detectHandler(conn);
+        welcomeHandler(conn);
+    } catch (e) {}
+
+    if (!conn.authState.creds.registered) {
+        setTimeout(async () => {
+            let input = await question(chalk.cyan('\n  [?] Introduce tu número con código de país:\n  > '));
+            let phoneNumber = input.replace(/[^0-9]/g, '');
+            try {
+                let code = await conn.requestPairingCode(phoneNumber);
+                code = code?.match(/.{1,4}/g)?.join('-') || code;
+                console.log(chalk.black.bgCyan(`\n  CODIGO DE VINCULACIÓN: ${code}  \n`));
+            } catch (error) {
+                console.error('Error al generar código:', error);
+            }
+        }, 3000);
+    }
+
+    conn.ev.on('creds.update', saveCreds);
+
+    conn.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'close') {
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            if (reason === DisconnectReason.loggedOut) {
+                console.log(chalk.red('[!] Sesión cerrada. Elimina la carpeta sesion_bot.'));
+                process.exit();
+            } else {
+                setTimeout(() => startBot(), 5000);
+            }
+        } else if (connection === 'open') {
+            process.stdout.write('\x1Bc');
+            CFonts.say('KAZUMA', { font: 'block', align: 'center', colors: ['cyan', 'magenta'] });
+            console.log(chalk.greenBright.bold(`\n  [✨] ¡KAZUMA CONECTADO!\n  [⌚] Tiempo de carga: ${((Date.now() - startTime) / 1000).toFixed(2)}s`));
+            await loadAllSubBots(conn);
+            await loadAllMoodBots(conn);
+        }
+    });
+
+    conn.ev.on('messages.upsert', async (chatUpdate) => {
+        const m = chatUpdate.messages[0];
+        if (!m || !m.message) return;
+        if (m.key.remoteJid === 'status@broadcast') return;
+
+        const messageTimestamp = (m.messageTimestamp?.low || m.messageTimestamp || Date.now()) * 1000;
+        if ((Date.now() - messageTimestamp) > 180000) return;
+
+        m.chat = m.key.remoteJid;
+        m.sender = conn.decodeJid ? conn.decodeJid(m.key.participant || m.key.remoteJid) : (m.key.participant || m.key.remoteJid);
+        const isGroup = m.chat.endsWith('@g.us');
+
+        let dbUser = await database.getUser(m.sender);
+        if (!dbUser) {
+            dbUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: new Date().toISOString() };
+            await database.saveUser(m.sender, dbUser);
+        }
+        global.db.data.users[m.sender] = dbUser;
+
+        if (isGroup) {
+            let dbChat = await database.getChat(m.chat);
+            if (!dbChat) {
+                dbChat = { welcome: 1, antilink: 1, detect: 1 };
+                await database.saveChat(m.chat, dbChat);
+            }
+            global.db.data.chats[m.chat] = dbChat;
+        }
+
+        global.lastMessageMap.set(m.sender, Date.now());
+        m.reply = async (text) => conn.sendMessage(m.chat, { text }, { quoted: m });
+        m.download = async () => downloadMediaMessage(m, 'buffer', {}, { logger: P({ level: 'silent' }) });
+
+        const msgType = Object.keys(m.message)[0];
+        const contextInfo = m.message[msgType]?.contextInfo;
+
+        if (contextInfo?.quotedMessage) {
+            const type = Object.keys(contextInfo.quotedMessage)[0];
+            const q = contextInfo.quotedMessage[type];
+            m.quoted = {
+                type, msg: q, id: contextInfo.stanzaId, mimetype: q?.mimetype || '',
+                text: q?.text || q?.caption || contextInfo.quotedMessage.conversation || '',
+                key: {
+                    remoteJid: m.chat,
+                    fromMe: contextInfo.participant === (conn.user.id.split(':')[0] + '@s.whatsapp.net'),
+                    id: contextInfo.stanzaId, participant: contextInfo.participant
+                },
+                message: contextInfo.quotedMessage,
+                download: async () => downloadMediaMessage({ message: contextInfo.quotedMessage }, 'buffer', {}, { logger: P({ level: 'silent' }) })
+            };
+        } else {
+            m.quoted = null;
+        }
+
+        let body = '';
+        if (msgType === 'conversation') body = m.message.conversation;
+        else if (msgType === 'imageMessage') body = m.message.imageMessage.caption;
+        else if (msgType === 'videoMessage') body = m.message.videoMessage.caption;
+        else if (msgType === 'extendedTextMessage') body = m.message.extendedTextMessage.text;
+        else if (msgType === 'buttonsResponseMessage') body = m.message.buttonsResponseMessage.selectedButtonId;
+        else if (msgType === 'listResponseMessage') body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
+        else if (msgType === 'templateButtonReplyMessage') body = m.message.templateButtonReplyMessage.selectedId;
+
+        const prefix = config.prefix || '/';
+        const isCmd = body.startsWith(prefix);
+        const commandText = isCmd ? body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase() : '';
+        const args = body.trim().split(/ +/).slice(1);
+        const text = args.join(' ');
+
+        logger(m, conn);
+        await antiLinkHandler(conn, m);
+
+        if (isCmd || m.noPrefix) {
+            const checkCmd = commandText || body.trim().split(/ +/).shift().toLowerCase();
+            const cmd = global.commands.get(checkCmd) || Array.from(global.commands.values()).find(c => (c.alias && c.alias.includes(checkCmd)) || (c.aliases && c.aliases.includes(checkCmd)));
+            
+            if (cmd && (isCmd || cmd.noPrefix)) {
+                if (cmd.cooldown) {
+                    if (!global.db.data.users[m.sender].cooldowns) {
+                        global.db.data.users[m.sender].cooldowns = {};
+                    }
+                    const now = Date.now();
+                    const expirationTime = (global.db.data.users[m.sender].cooldowns[cmd.name] || 0) + (cmd.cooldown * 1000);
+                    if (now < expirationTime) {
+                        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+                        return m.reply(`Por favor espera ${timeLeft} segundos antes de usar el comando *${cmd.name}* nuevamente.`);
+                    }
+                    global.db.data.users[m.sender].cooldowns[cmd.name] = now;
+                }
+                try {
+                    await cmd.run(conn, m, args, prefix, checkCmd, text);
+                } catch (cmdErr) {
+                    console.error(cmdErr);
+                }
+            }
+        }
+
+        await pixelHandler(conn, m, config);
+
+        try {
+            await database.saveUser(m.sender, global.db.data.users[m.sender]);
+            if (isGroup) await database.saveChat(m.chat, global.db.data.chats[m.chat]);
+        } catch (dbErr) {
+            console.error(dbErr);
+        }
+    });
+}
+
+startBot();
