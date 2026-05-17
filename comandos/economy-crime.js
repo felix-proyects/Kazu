@@ -11,14 +11,11 @@ const crimeCommand = {
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const user = global.db.data.users[m.sender];
-            const now = Date.now();
-            
-            if (!user.last_crime_time) {
-                user.last_crime_time = 0;
-            }
+            const now = new Date();
+            const lastCrime = new Date(user.last_crime || '1970-01-01T00:00:00.000Z');
 
+            const difference = now - lastCrime;
             const cooldownTime = 7 * 60 * 1000;
-            const difference = now - user.last_crime_time;
 
             if (difference < cooldownTime) {
                 const timeLeft = cooldownTime - difference;
@@ -27,8 +24,7 @@ const crimeCommand = {
                 return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${minutes}m ${seconds}s* antes de cometer otro crimen.`);
             }
 
-            user.last_crime_time = now;
-
+            user.last_crime = now.toISOString();
             const chance = Math.random() < 0.65;
 
             if (chance) {
