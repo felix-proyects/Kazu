@@ -1,70 +1,56 @@
-import { config } from '../config.js';
 import { database } from '../database.js';
+import { config } from '../config.js';
 import { crimeFrases, failFrases } from './frases/crimen.js';
 
 const crimeCommand = {
     name: 'crime',
-    alias: ['crimen', 'asaltar'],
+    alias: ['crimen', 'robar'],
     category: 'economy',
-    desc: 'Arriésgate a cometer actos ilícitos para obtener dinero.',
+    desc: 'Comete un crimen para ganar coins, pero ten cuidado con la policía.',
     noPrefix: true,
-    isGroup: true,
+    cooldown: 300,
 
-    run: async (conn, m) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            const userJid = m.sender;
-            const ahora = new Date();
-            const cooldown = 7 * 60 * 1000;
+            await conn.sendMessage(m.chat, { react: { text: '🕵️', key: m.key } });
 
-            let userDb = await database.getUser(userJid);
-            if (!userDb) {
-                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z' };
-            }
+            const user = global.db.data.users[m.sender];
+            const chance = Math.random() < 0.65;
 
-            const lastCrimeTime = new Date(userDb.last_claim).getTime();
-            const tiempoPasado = ahora.getTime() - lastCrimeTime;
+            if (chance) {
+                const frase = crimeFrases[Math.floor(Math.random() * crimeFrases.length)];
+                const reward = Math.floor(Math.random() * (frase.max - frase.min + 1)) + frase.min;
 
-            if (tiempoPasado < cooldown) {
-                const restante = cooldown - tiempoPasado;
-                const minutos = Math.floor(restante / 60000);
-                const segundos = Math.floor((restante % 60000) / 1000);
-                return m.reply(`*${config.visuals.emoji2}* \`BAJO VIGILANCIA\`\n\n> Debes esperar **${minutos}m ${segundos}s** para volver a intentarlo.`);
-            }
+                user.wallet = (user.wallet || 0) + reward;
+                await database.saveUser(m.sender, user);
 
-            const exito = Math.random() > 0.4;
-            userDb.last_claim = ahora.toISOString();
+                let txt = `*${config.visuals.emoji1}* ¡CRIMEN EXITOSO! *${config.visuals.emoji1}*\n\n`;
+                txt += `*${config.visuals.emoji3}* ${frase.text}\n`;
+                txt += `*${config.visuals.emoji3}* Ganancia: *💵 +${reward.toLocaleString()} coins*\n`;
+                txt += `*${config.visuals.emoji3}* Cartera actual: *💵 ${user.wallet.toLocaleString()} coins*`;
 
-            if (exito) {
-                const fr = crimeFrases[Math.floor(Math.random() * crimeFrases.length)];
-                const recompensa = Math.floor(Math.random() * (fr.max - fr.min + 1)) + fr.min;
-                userDb.wallet = Number(userDb.wallet || 0) + recompensa;
-
-                let texto = `*${config.visuals.emoji3}* \`CRIMEN EXITOSO\` *${config.visuals.emoji3}*\n\n`;
-                texto += `${fr.text}\n`;
-                texto += `*${config.visuals.emoji} Ganaste:* ¥${recompensa.toLocaleString()}\n\n`;
-                texto += `> *Cartera:* ¥${userDb.wallet.toLocaleString()}`;
-                
-                await conn.sendMessage(m.chat, { text: texto }, { quoted: m });
+                await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+                return m.reply(txt);
             } else {
-                const multa = Math.floor(Math.random() * (2000 - 500 + 1)) + 500;
-                const currentWallet = Number(userDb.wallet || 0);
+                const fraseFallo = failFrases[Math.floor(Math.random() * failFrases.length)];
+                const loss = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
 
-                if (currentWallet > 0) {
-                    userDb.wallet = Math.max(0, currentWallet - multa);
-                }
+                user.wallet = Math.max(0, (user.wallet || 0) - loss);
+                await database.saveUser(m.sender, user);
 
-                const fail = failFrases[Math.floor(Math.random() * failFrases.length)];
-                let textoFail = `*${config.visuals.emoji2}* \`OPERACIÓN FALLIDA\`\n\n${fail}\n`;
-                if (currentWallet > 0) textoFail += `> *Multa pagada:* ¥${multa.toLocaleString()}`;
+                let txt = `*${config.visuals.emoji2}* ¡CRIMEN FALLIDO! *${config.visuals.emoji2}*\n\n`;
+                txt += `*${config.visuals.emoji3}* ${fraseFallo}\n`;
+                txt += `*${config.visuals.emoji3}* Multa pagada: *💵 -${loss.toLocaleString()} coins*\n`;
+                txt += `*${config.visuals.emoji3}* Cartera actual: *💵 ${user.wallet.toLocaleString()} coins*`;
 
-                m.reply(textoFail);
+                await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
+                return m.reply(txt);
             }
-
-            await database.saveUser(userJid, userDb);
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error en la misión.`);
+            await conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } });
+            m.reply(`*${config.visuals.emoji2}* Ocurrió un error al planear el crimen.`);
         }
     }
 };
