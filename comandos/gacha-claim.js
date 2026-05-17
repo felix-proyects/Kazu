@@ -35,9 +35,9 @@ const claimCommand = {
 
             if (tiempoPasado < tiempoEspera) {
                 const faltante = tiempoEspera - tiempoPasado;
-                const minutos = Math.floor(faltante / 60000);
-                const segundos = Math.floor((faltante % 60000) / 1000);
-                return m.reply(`*${config.visuals.emoji2}* ¡Espera! Debes esperar **${minutos}m ${segundos}s** antes de reclamar otro personaje.`);
+                const minutes = Math.floor(faltante / 60000);
+                const seconds = Math.floor((faltante % 60000) / 1000);
+                return m.reply(`*${config.visuals.emoji2}* ¡Espera! Debes esperar **${minutes}m ${seconds}s** antes de reclamar otro personaje.`);
             }
 
             if (!fs.existsSync(gachaPath)) return m.reply('Error: Base de datos gacha no encontrada.');
@@ -46,10 +46,13 @@ const claimCommand = {
 
             let pjId = null;
 
+            // 1. Intentar por argumento de texto directo (.c 14)
             if (args && args[0] && !isNaN(args[0])) {
                 pjId = args[0];
             } 
+            // 2. Si cita un mensaje
             else if (m.quoted) {
+                // Comprobación A: Buscar en la memoria global
                 const chatRolls = global.db.data.chats[group]?.rolls;
                 if (chatRolls && chatRolls[m.quoted.id]) {
                     if (ahora.getTime() < chatRolls[m.quoted.id].expiresAt) {
@@ -57,8 +60,11 @@ const claimCommand = {
                     }
                 }
 
-                if (!pjId && m.quoted.text) {
-                    const matchId = m.quoted.text.match(/ID\s*»\s*(\d+)/i);
+                // Comprobación B: Forzar lectura del texto citado (Extremadamente flexible)
+                const quotedText = m.quoted.text || m.quoted.caption || '';
+                if (!pjId && quotedText) {
+                    // Esta expresión regular busca "ID", cualquier símbolo intermedio como » o : y luego captura los números sueltos
+                    const matchId = quotedText.match(/ID[\s\S]*?(\d+)/i);
                     if (matchId) {
                         pjId = matchId[1];
                     }
