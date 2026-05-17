@@ -12,7 +12,7 @@ const crimeCommand = {
         try {
             const user = global.db.data.users[m.sender];
             const now = Date.now();
-
+            
             if (!user.last_crime_time) {
                 user.last_crime_time = 0;
             }
