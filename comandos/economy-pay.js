@@ -1,55 +1,81 @@
-import { config } from '../config.js';
 import { database } from '../database.js';
 
 const payCommand = {
     name: 'pay',
-    alias: ['pagar', 'transferir'],
+    alias: ['transferir', 'transfer', 'pagar'],
     category: 'economy',
-    desc: 'Transfiere dinero de tu banco al banco de otro usuario.',
+    desc: 'Transfiere coins de tu banco al banco de otro usuario.',
     noPrefix: true,
 
-    run: async (conn, m, { args }) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            const senderJid = m.sender;
-            let targetJid = m.quoted ? m.quoted.sender || m.quoted.key.participant : m.mentionedJid?.[0];
-
-            if (!targetJid) return m.reply(`*${config.visuals.emoji2}* Responde al mensaje de alguien o menciónalo.`);
-            if (senderJid === targetJid) return m.reply(`*${config.visuals.emoji2}* No puedes enviarte dinero a ti mismo.`);
-
-            let amount = parseInt(args[0]?.replace(/[^0-9]/g, ''));
-            if (isNaN(amount) || amount < 1000) return m.reply(`*${config.visuals.emoji2}* La cantidad mínima es ¥1,000.`);
-
-            let senderDb = await database.getUser(senderJid);
-            let receiverDb = await database.getUser(targetJid);
-
-            if (!senderDb || Number(senderDb.bank || 0) < amount) {
-                return m.reply(`*${config.visuals.emoji2}* No tienes suficiente dinero en tu banco.`);
+            let who;
+            if (m.isGroup) {
+                who = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : (m.quoted && m.quoted.sender ? m.quoted.sender : null);
+            } else {
+                who = m.quoted && m.quoted.sender ? m.quoted.sender : null;
             }
 
-            if (!receiverDb) {
-                receiverDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: new Date(0).toISOString() };
+            if (!who) {
+                return m.reply(`*❁* Debes mencionar a un usuario o responder a su mensaje para realizar la transferencia.\n\n» Ejemplo: *${usedPrefix || ''}${commandName} @user 5000*`);
             }
 
-            senderDb.bank = Number(senderDb.bank) - amount;
-            receiverDb.bank = Number(receiverDb.bank || 0) + amount;
+            if (who === m.sender) {
+                return m.reply(`*❁* No puedes realizar transferencias bancarias a ti mismo.`);
+            }
 
-            await database.saveUser(senderJid, senderDb);
-            await database.saveUser(targetJid, receiverDb);
+            const amountArg = args.find(arg => !arg.includes('@'));
+            if (!amountArg) {
+                return m.reply(`*❁* Especifica la cantidad que deseas transferir o escribe *all*.\n\n» Ejemplo: *${usedPrefix || ''}${commandName} @user 5000*`);
+            }
 
-            const senderId = senderJid.split('@')[0].split(':')[0];
-            const receiverId = targetJid.split('@')[0].split(':')[0];
+            let senderUser = global.db.data.users[m.sender];
+            const senderBank = senderUser.bank || 0;
 
-            let texto = `*${config.visuals.emoji3}* \`TRANSFERENCIA BANCARIA\` *${config.visuals.emoji3}*\n\n`;
-            texto += `*De:* @${senderId}\n`;
-            texto += `*Para:* @${receiverId}\n`;
-            texto += `*Monto:* ¥${amount.toLocaleString()}\n\n`;
-            texto += `> ¡El pago se ha procesado con éxito!`;
+            let amount;
+            if (amountArg.toLowerCase() === 'all') {
+                amount = senderBank;
+            } else {
+                amount = parseInt(amountArg.replace(/[^0-9]/g, ''));
+            }
 
-            await conn.sendMessage(m.chat, { text: texto, mentions: [senderJid, targetJid] }, { quoted: m });
+            if (isNaN(amount) || amount <= 0) {
+                return m.reply(`*❁* Ingresa una cantidad válida y mayor a cero para transferir.`);
+            }
+
+            if (senderBank < amount) {
+                return m.reply(`*❁ \`FONDOS INSUFICIENTES\` ❁*\n\n» No tienes esa cantidad en tu banco.\n» Dispones de: *$${senderBank.toLocaleString()}* coins.`);
+            }
+
+            let receiverUser = global.db.data.users[who];
+            if (!receiverUser) {
+                receiverUser = await database.getUser(who);
+                if (!receiverUser) {
+                    receiverUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z' };
+                }
+            }
+
+            senderUser.bank = senderBank - amount;
+            receiverUser.bank = (receiverUser.bank || 0) + amount;
+
+            global.db.data.users[m.sender] = senderUser;
+            global.db.data.users[who] = receiverUser;
+
+            await database.saveUser(m.sender, senderUser);
+            await database.saveUser(who, receiverUser);
+
+            let txt = `*❁ \`TRANSFERENCIA BANCARIA\` ❁*\n\n`;
+            txt += `» Transacción procesada por el sistema financiero.\n`;
+            txt += `*❀ Emisor »* @${m.sender.split('@')[0]}\n`;
+            txt += `*✿ Receptor »* @${who.split('@')[0]}\n`;
+            txt += `*✰ Monto Enviado »* $${amount.toLocaleString()} coins\n\n`;
+            txt += `> ❀ Fondos depositados directamente en la cuenta bancaria.`;
+
+            return conn.sendMessage(m.chat, { text: txt, mentions: [m.sender, who] }, { quoted: m });
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error en la transferencia.`);
+            m.reply('Ocurrió un error interno al procesar el comando.');
         }
     }
 };
