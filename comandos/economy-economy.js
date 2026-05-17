@@ -1,10 +1,10 @@
 import { database } from '../database.js';
 
-const cdCommand = {
+const economyInfoCommand = {
     name: 'economy',
     alias: ['einfo', 'ecoinfo'],
     category: 'economy',
-    desc: 'Muestra los tiempos de espera restantes de los comandos de economía.',
+    desc: 'Muestra el tiempo transcurrido desde el último uso de los comandos.',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
@@ -22,34 +22,35 @@ const cdCommand = {
             }
 
             if (!user) {
-                return m.reply('*❁*  El usuario no está registrado en la base de datos.');
+                return m.reply('*❁ ¡ERROR! ❁*\n\n» El usuario no está registrado en la base de datos.');
             }
 
             const userId = who.split('@')[0];
             const now = Date.now();
 
-            const formatCooldown = (lastTimeIso, cooldownMs) => {
-                if (!lastTimeIso) return '✔ Disponible';
+            const formatTimeAgo = (lastTimeIso) => {
+                if (!lastTimeIso || lastTimeIso === '1970-01-01T00:00:00.000Z') return 'Nunca';
+                
                 const lastTime = new Date(lastTimeIso).getTime();
                 const difference = now - lastTime;
-                if (difference >= cooldownMs) return '✔ Disponible';
                 
-                const timeLeft = cooldownMs - difference;
-                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                if (difference < 0) return 'Hace un momento';
 
-                let result = '';
-                if (hours > 0) result += `${hours}h `;
-                if (minutes > 0 || hours > 0) result += `${minutes}m `;
-                result += `${seconds}s`;
-                return `⏳ ${result}`;
+                const seconds = Math.floor(difference / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+
+                if (days > 0) return `Hace ${days}d`;
+                if (hours > 0) return `Hace ${hours}h`;
+                if (minutes > 0) return `Hace ${minutes}m`;
+                return `Hace ${seconds}s`;
             };
 
-            const dailyFmt = formatCooldown(user.last_claim, 24 * 60 * 60 * 1000);
-            const crimeFmt = formatCooldown(user.last_crime, 7 * 60 * 1000);
-            const workFmt = formatCooldown(user.last_work, 10 * 60 * 1000);
-            const slutFmt = formatCooldown(user.last_slut, 12 * 60 * 1000);
+            const dailyFmt = formatTimeAgo(user.last_claim);
+            const crimeFmt = formatTimeAgo(user.last_crime);
+            const workFmt = formatTimeAgo(user.last_work);
+            const slutFmt = formatTimeAgo(user.last_slut);
 
             const wallet = user.wallet || 0;
             const bank = user.bank || 0;
@@ -72,4 +73,4 @@ const cdCommand = {
     }
 };
 
-export default cdCommand;
+export default economyInfoCommand;
