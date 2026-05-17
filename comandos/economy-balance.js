@@ -1,34 +1,32 @@
-import { config } from '../config.js';
+import { database } from '../database.js';
 
 const balanceCommand = {
     name: 'balance',
-    alias: ['bal', 'cartera', 'banco', 'coins'],
+    alias: ['bal', 'wallet', 'banco', 'coins'],
     category: 'economy',
-    desc: 'Muestra tu saldo actual en la cartera, el banco y el total acumulado.',
+    desc: 'Muestra tu balance actual de coins.',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            await conn.sendMessage(m.chat, { react: { text: '💳', key: m.key } });
-
             const user = global.db.data.users[m.sender];
+
             const wallet = user.wallet || 0;
             const bank = user.bank || 0;
             const total = wallet + bank;
 
-            let txt = `*${config.visuals.emoji1}* BALANCE DE USUARIO *${config.visuals.emoji1}*\n\n`;
-            txt += `*${config.visuals.emoji3}* Usuario: @${m.sender.split('@')[0]}\n`;
-            txt += `*${config.visuals.emoji3}* En Cartera: *💵 ${wallet.toLocaleString()} coins*\n`;
-            txt += `*${config.visuals.emoji3}* En el Banco: *🏛️ ${bank.toLocaleString()} coins*\n\n`;
-            txt += `*${config.visuals.emoji3}* Total Neto: *💰 ${total.toLocaleString()} coins*`;
+            let txt = `*❁ \`BALANCE DE CUENTA\` ❁*\n\n`;
+            txt += `» *Usuario:* @${m.sender.split('@')[0]}\n`;
+            txt += `*❀ Billetera »* $${wallet.toLocaleString()} coins\n`;
+            txt += `*✿ Banco »* $${bank.toLocaleString()} coins\n`;
+            txt += `*✰ Total Neto »* $${total.toLocaleString()} coins\n\n`;
+            txt += `> ¡Sigue sumando coins para dominar la economía!`;
 
-            await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
             return conn.sendMessage(m.chat, { text: txt, mentions: [m.sender] }, { quoted: m });
 
         } catch (e) {
             console.error(e);
-            await conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } });
-            m.reply(`*${config.visuals.emoji2}* Ocurrió un error al verificar tu balance.`);
+            m.reply('Ocurrió un error interno al procesar el comando.');
         }
     }
 };
