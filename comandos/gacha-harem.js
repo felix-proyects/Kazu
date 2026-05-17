@@ -14,7 +14,7 @@ const haremCommand = {
     noPrefix: true,
     isGroup: true,
 
-    run: async (conn, m, { args }) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const group = m.chat;
             let targetJid = m.sender;
@@ -35,7 +35,7 @@ const haremCommand = {
             const rawData = JSON.parse(fs.readFileSync(gachaPath, 'utf-8'));
             const plantillaPersonajes = rawData[baseGroup];
 
-            const userPjs = await database.getUserCharacters(group, targetJid);
+            const userPjs = await database.getHarem(group, targetJid);
 
             if (!userPjs || userPjs.length === 0) {
                 const isMe = targetJid === m.sender;
@@ -43,9 +43,9 @@ const haremCommand = {
             }
 
             let misPjs = userPjs.map(dbPj => ({
-                ...plantillaPersonajes[dbPj.char_id],
-                id_db: dbPj.char_id
-            })).filter(pj => pj.name); // Filtramos por si alguno no existe en la plantilla
+                ...plantillaPersonajes[dbPj.character_id],
+                id_db: dbPj.character_id
+            })).filter(pj => pj && pj.name);
 
             misPjs.sort((a, b) => b.value - a.value);
 
@@ -57,13 +57,15 @@ const haremCommand = {
             const currentPjs = misPjs.slice(start, start + itemsPerPage);
 
             const mentionId = targetJid.split('@')[0].split(':')[0];
-            let txt = `*${config.visuals.emoji3} \`HAREM DEL USUARIO\` ${config.visuals.emoji3}*\n`;
+            let txt = `*${config.visuals.emoji3} \`HAREM DEL USUARIO\` ${config.visuals.emoji3}*\n\n`;
             txt += `» @${mentionId} (${misPjs.length} personajes)\n`;
-            txt += `*Página:* ${page} de ${totalPages}\n\n`;
+            txt += `*✰ Página »* ${page} de ${totalPages}\n\n`;
 
             currentPjs.forEach((pj) => {
-                txt += `› ${pj.name} \`[${pj.id_db}]\` - ¥${pj.value.toLocaleString()}\n`;
+                txt += `› ${pj.name} \`[${pj.id_db}]\` - $${pj.value.toLocaleString()} coins\n`;
             });
+
+            txt += `\n> ¡Presume tu gran colección ante todo el servidor!`;
 
             await conn.sendMessage(m.chat, { 
                 text: txt, 
