@@ -5,7 +5,7 @@ const flipCommand = {
     name: 'flip',
     alias: ['coinflip', 'moneda', 'suerte'],
     category: 'economy',
-    desc: 'Apuesta tus coins a cara o cruz con un 30% de probabilidad de ganar el doble.',
+    desc: 'Apuesta tus coins a cara o cruz eligiendo tu lado con un 30% de probabilidad de ganar.',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
@@ -23,19 +23,24 @@ const flipCommand = {
                 return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${timeLeft}s* antes de lanzar la moneda otra vez.`);
             }
 
-            if (!args[0]) {
-                return m.reply(`*❁ ¡ERROR DE USO! ❁*\n\n» Especifica una cantidad para apostar o escribe *all*.\n» Ejemplo: *${usedPrefix || ''}${commandName} 5000*`);
+            const eleccion = args[0] ? args[0].toLowerCase() : '';
+            if (eleccion !== 'cara' && eleccion !== 'cruz') {
+                return m.reply(`*❁* Debes elegir entre *cara* o *cruz* antes de hacer tu apuesta.\n\n» Ejemplo: *${usedPrefix || ''}${commandName} cara 5000*`);
+            }
+
+            if (!args[1]) {
+                return m.reply(`*❁* Especifica una cantidad para apostar o escribe *all*.\n\n» Ejemplo: *${usedPrefix || ''}${commandName} ${eleccion} 5000*`);
             }
 
             let amount;
-            if (args[0].toLowerCase() === 'all') {
+            if (args[1].toLowerCase() === 'all') {
                 amount = wallet;
             } else {
-                amount = parseInt(args[0].replace(/[^0-9]/g, ''));
+                amount = parseInt(args[1].replace(/[^0-9]/g, ''));
             }
 
-            if (isNaN(amount) || amount <= 0) {
-                return m.reply(`*❁ ¡CANTIDAD INVÁLIDA! ❁*\n\n» Ingresa un número entero mayor a cero para realizar la apuesta.`);
+            if (isNaN(amount) || amount < 1000) {
+                return m.reply(`*❁* La cantidad de apuesta debe ser un número entero de *$1,000* coins en adelante.\n\n» Ejemplo: *${usedPrefix || ''}${commandName} ${eleccion} 1000*`);
             }
 
             if (wallet < amount) {
@@ -44,16 +49,18 @@ const flipCommand = {
 
             user.last_flip = now.toISOString();
 
-            const winChance = Math.random() < 0.30;
+            const lados = ['cara', 'cruz'];
+            const resultadoMoneda = Math.random() < 0.30 ? eleccion : lados.find(l => l !== eleccion);
 
-            if (winChance) {
+            if (resultadoMoneda === eleccion) {
                 const frase = flipFrases.win[Math.floor(Math.random() * flipFrases.win.length)];
                 
                 user.wallet = wallet + amount;
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`APUESTA EXITOSA\` ❁*\n\n`;
-                txt += `» ${frase}\n`;
+                txt += `» La moneda giró en el aire y cayó en: *${resultadoMoneda.toUpperCase()}*\n`;
+                txt += `» ${frase}\n\n`;
                 txt += `*✰ Ganaste »* $${amount.toLocaleString()} coins\n`;
                 txt += `*❀ Total Billetera »* $${user.wallet.toLocaleString()} coins\n\n`;
                 txt += `> ✿ ¡La fortuna te acompaña el día de hoy!`;
@@ -66,7 +73,8 @@ const flipCommand = {
                 await database.saveUser(m.sender, user);
 
                 let txt = `*❁ \`APUESTA FALLIDA\` ❁*\n\n`;
-                txt += `» ${fraseFallo}\n`;
+                txt += `» La moneda giró en el aire y cayó en: *${resultadoMoneda.toUpperCase()}*\n`;
+                txt += `» ${fraseFallo}\n\n`;
                 txt += `*✰ Perdiste »* $${amount.toLocaleString()} coins\n`;
                 txt += `*❀ Total Billetera »* $${user.wallet.toLocaleString()} coins\n\n`;
                 txt += `> ✰ La suerte es caprichosa, vuelve a intentarlo.`;
