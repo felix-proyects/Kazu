@@ -1,51 +1,55 @@
-import { config } from '../config.js';
 import { database } from '../database.js';
 
-const depCommand = {
+const depositCommand = {
     name: 'deposit',
     alias: ['dep', 'd', 'depositar'],
     category: 'economy',
-    desc: 'Asegura tus coins enviándolas de tu cartera al banco.',
+    desc: 'Deposita tus coins de la billetera al banco.',
     noPrefix: true,
 
-    run: async (conn, m, { args }) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            const userJid = m.sender;
-            let userDb = await database.getUser(userJid);
-            
-            if (!userDb) return m.reply(`*${config.visuals.emoji2}* No tienes una cuenta activa.`);
+            const user = global.db.data.users[m.sender];
+            const wallet = user.wallet || 0;
 
-            const wallet = Number(userDb.wallet || 0);
-            if (wallet <= 0) return m.reply(`*${config.visuals.emoji2}* \`CARTERA VACÍA\`\n\nNo tienes dinero para depositar.`);
-
-            let amount = args[0];
-            if (!amount) return m.reply(`*${config.visuals.emoji2}* \`FALTAN DATOS\`\n\nIngresa una cantidad o usa *all*.`);
-
-            if (amount.toLowerCase() === 'all') {
-                amount = wallet;
-            } else {
-                amount = parseInt(amount.replace(/[^0-9]/g, ''));
+            if (!args[0]) {
+                return m.reply(`*❁ ¡ERROR DE USO! ❁*\n\n» Especifica una cantidad o escribe *all*.\n» Ejemplo: *${usedPrefix || ''}${commandName} 5000* o *${usedPrefix || ''}${commandName} all*`);
             }
 
-            if (isNaN(amount) || amount <= 0) return m.reply(`*${config.visuals.emoji2}* Cantidad inválida.`);
-            if (wallet < amount) return m.reply(`*${config.visuals.emoji2}* No tienes suficiente dinero en cartera.`);
+            let amount;
+            if (args[0].toLowerCase() === 'all') {
+                amount = wallet;
+            } else {
+                amount = parseInt(args[0].replace(/[^0-9]/g, ''));
+            }
 
-            userDb.wallet = wallet - amount;
-            userDb.bank = Number(userDb.bank || 0) + amount;
+            if (isNaN(amount) || amount <= 0) {
+                return m.reply(`*❁ ¡CANTIDAD INVÁLIDA! ❁*\n\n» Ingresa un número entero mayor a cero o la palabra *all*.`);
+            }
 
-            let texto = `*${config.visuals.emoji3}* \`DEPÓSITO EXITOSO\` *${config.visuals.emoji3}*\n\n`;
-            texto += `*${config.visuals.emoji} Monto:* ¥${amount.toLocaleString()}\n`;
-            texto += `*${config.visuals.emoji4} Banco:* ¥${userDb.bank.toLocaleString()}\n\n`;
-            texto += `> *Restante en Cartera:* ¥${userDb.wallet.toLocaleString()}`;
+            if (wallet < amount) {
+                return m.reply(`*❁ \`FONDOS INSUFICIENTES\` ❁*\n\n» No tienes esa cantidad en tu billetera.\n» Dispones de: *$${wallet.toLocaleString()}* coins.`);
+            }
 
-            await database.saveUser(userJid, userDb);
-            await conn.sendMessage(m.chat, { text: texto }, { quoted: m });
+            user.wallet = wallet - amount;
+            user.bank = (user.bank || 0) + amount;
+
+            await database.saveUser(m.sender, user);
+
+            let txt = `*❁ \`DEPÓSITO EXITOSO\` ❁*\n\n`;
+            txt += `» Has asegurado tus coins en la bóveda.\n`;
+            txt += `*❀ Depositado »* $${amount.toLocaleString()} coins\n`;
+            txt += `*✿ En Billetera »* $${user.wallet.toLocaleString()} coins\n`;
+            txt += `*✰ En Banco »* $${user.bank.toLocaleString()} coins\n\n`;
+            txt += `> ✰ Tus fondos se encuentran protegidos de robos.`;
+
+            return m.reply(txt);
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error en el depósito.`);
+            m.reply('Ocurrió un error interno al procesar el comando.');
         }
     }
 };
 
-export default depCommand;
+export default depositCommand;
