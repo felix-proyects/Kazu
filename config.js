@@ -6,7 +6,7 @@ export const config = {
     currency: 'Coins',
     symbol: '¥',
     owner: [
-        '573508941325@s.whatsapp.net', 
+        '18495029889@s.whatsapp.net', 
         '125860308893859@lid',
         '18495029889@s.whatsapp.net'
     ], 
