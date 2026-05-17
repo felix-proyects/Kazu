@@ -1,14 +1,19 @@
 export const flipFrases = {
     win: [
-        "¡Increíble! La moneda cayó a tu favor contra todo pronóstico. Ganaste ¥1,000.",
-        "¡Suerte de leyenda! Has ganado ¥1,000 superando las probabilidades.",
-        "¡La moneda te favoreció! Sumas ¥1,000 a tu cartera.",
-        "¡Victoria! El 30% estuvo de tu lado. ¥1,000 a tu bolsillo."
+        "¡Increíble! La moneda cayó a tu favor contra todo pronóstico.",
+        "¡Suerte de leyenda! Has ganado superando las probabilidades.",
+        "¡La moneda te favoreció! Sumas una buena cantidad a tu cartera.",
+        "¡Victoria! El 30% estuvo de tu lado de forma espectacular.",
+        "¡El destino te sonríe! Una racha de pura fortuna.",
+        "¡Rompiendo el sistema! Lograste duplicar lo apostado.",
+        "¡Intuición perfecta! Viste el giro en el aire y acertaste."
     ],
     lose: [
-        "¡Mala suerte! La probabilidad te aplastó. Perdiste ¥1,000.",
-        "La casa siempre gana. Perdiste ¥1,000.",
-        "La moneda no tuvo piedad. Perdiste ¥1,000.",
-        "¡F! Perdiste ¥1,000. ¿Vas a rendirte tan fácil?"
+        "¡Mala suerte! La probabilidad te aplastó.",
+        "La casa siempre gana.",
+        "La moneda no tuvo piedad.",
+        "¡F! Perdiste. ¿Vas a rendirte tan fácil?",
+        "El viento cambió la dirección de la moneda en el último segundo.",
+        "Hoy no es tu día de suerte, la apuesta se esfumó."
     ]
 };
