@@ -1,61 +1,63 @@
-import { config } from '../config.js';
 import { database } from '../database.js';
 import { winFrases, loseFrases } from './frases/slut.js';
 
 const slutCommand = {
     name: 'slut',
-    alias: ['prostituirse', 'escenario'],
+    alias: ['prostituta', 'tubo', 'puta'],
     category: 'economy',
-    desc: 'Trabaja en el escenario para ganar coins.',
+    desc: 'Trabaja en el club nocturno para ganar o perder coins.',
     noPrefix: true,
 
-    run: async (conn, m) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            const userJid = m.sender;
-            const ahora = Date.now();
-            const cooldown = 10 * 60 * 1000;
+            const user = global.db.data.users[m.sender];
+            const now = new Date();
+            const lastSlut = new Date(user.last_slut || '1970-01-01T00:00:00.000Z');
 
-            let userDb = await database.getUser(userJid);
-            if (!userDb) userDb = { wallet: 0, bank: 0, lastSlut: 0 };
+            const difference = now - lastSlut;
+            const cooldownTime = 12 * 60 * 1000;
 
-            const tiempoPasado = ahora - (Number(userDb.lastSlut) || 0);
-
-            if (tiempoPasado < cooldown) {
-                const restante = Math.floor((cooldown - tiempoPasado) / 60000);
-                const segundos = Math.floor(((cooldown - tiempoPasado) % 60000) / 1000);
-                return m.reply(`*${config.visuals.emoji2}* \`AGOTAMIENTO\`\n\n> Necesitas descansar. Vuelve en **${restante}m ${segundos}s**.`);
+            if (difference < cooldownTime) {
+                const timeLeft = cooldownTime - difference;
+                const minutes = Math.floor(timeLeft / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Debes esperar *${minutes}m ${seconds}s* antes de volver al club.`);
             }
 
-            const esPerdida = Math.random() < 0.03;
-            const monto = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000;
-            const currentWallet = Number(userDb.wallet || 0);
+            user.last_slut = now.toISOString();
+            const chance = Math.random() < 0.65;
 
-            if (esPerdida) {
-                const frase = loseFrases[Math.floor(Math.random() * loseFrases.length)];
-                userDb.wallet = Math.max(0, currentWallet - monto);
-
-                let msg = `*${config.visuals.emoji2}* \`MALA NOCHE\`\n\n`;
-                msg += `${frase}\n`;
-                msg += `*Perdiste:* ¥${monto.toLocaleString()}\n\n`;
-                msg += `> *Cartera:* ¥${userDb.wallet.toLocaleString()}`;
-                await m.reply(msg);
-            } else {
+            if (chance) {
                 const frase = winFrases[Math.floor(Math.random() * winFrases.length)];
-                userDb.wallet = currentWallet + monto;
+                const reward = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
 
-                let msg = `*${config.visuals.emoji3}* \`NOCHE DE ÉXITO\` *${config.visuals.emoji3}*\n\n`;
-                msg += `${frase}\n`;
-                msg += `*Ganaste:* ¥${monto.toLocaleString()}\n\n`;
-                msg += `> *Cartera:* ¥${userDb.wallet.toLocaleString()}`;
-                await m.reply(msg);
+                user.wallet = (user.wallet || 0) + reward;
+                await database.saveUser(m.sender, user);
+
+                let txt = `*❁ \`CLUB NOCTURNO\` ❁*\n\n`;
+                txt += `» ${frase}\n`;
+                txt += `*✰ Ganaste »* $${reward.toLocaleString()} coins\n\n`;
+                txt += `> ¡Sigue deslumbrando a todos en la pista!`;
+
+                return m.reply(txt);
+            } else {
+                const fraseFallo = loseFrases[Math.floor(Math.random() * loseFrases.length)];
+                const loss = Math.floor(Math.random() * (12000 - 6000 + 1)) + 6000;
+
+                user.wallet = Math.max(0, (user.wallet || 0) - loss);
+                await database.saveUser(m.sender, user);
+
+                let txt = `*❁ \`CLUB NOCTURNO\` ❁*\n\n`;
+                txt += `» ${fraseFallo}\n`;
+                txt += `*✰ Perdiste »* $${loss.toLocaleString()} coins\n\n`;
+                txt += `> ¡Ten más cuidado la próxima noche!`;
+
+                return m.reply(txt);
             }
-
-            userDb.lastSlut = ahora;
-            await database.saveUser(userJid, userDb);
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error en la función.`);
+            m.reply('Ocurrió un error interno al procesar el comando.');
         }
     }
 };
