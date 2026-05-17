@@ -172,7 +172,7 @@ async function startBot() {
 
         let dbUser = await database.getUser(m.sender);
         if (!dbUser) {
-            dbUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: new Date().toISOString() };
+            dbUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z' };
             await database.saveUser(m.sender, dbUser);
         }
         global.db.data.users[m.sender] = dbUser;
