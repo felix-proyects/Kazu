@@ -1,8 +1,8 @@
 import { database } from '../database.js';
 
 const cdCommand = {
-    name: 'cooldowns',
-    alias: ['cd', 'tiempos', 'timers'],
+    name: 'economy',
+    alias: ['einfo', 'ecoinfo'],
     category: 'economy',
     desc: 'Muestra los tiempos de espera restantes de los comandos de economía.',
     noPrefix: true,
