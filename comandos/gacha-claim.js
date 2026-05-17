@@ -45,28 +45,41 @@ const claimCommand = {
             const plantillaPersonajes = rawData[baseGroup];
 
             let pjId = null;
+
             if (args && args[0] && !isNaN(args[0])) {
                 pjId = args[0];
-            } else if (m.quoted) {
+            } 
+            else if (m.quoted) {
                 const chatRolls = global.db.data.chats[group]?.rolls;
                 if (chatRolls && chatRolls[m.quoted.id]) {
-                    if (ahora.getTime() > chatRolls[m.quoted.id].expiresAt) {
-                        return m.reply(`*${config.visuals.emoji2}* El tiempo para reclamar este personaje ha expirado.`);
+                    if (ahora.getTime() < chatRolls[m.quoted.id].expiresAt) {
+                        pjId = chatRolls[m.quoted.id].id;
                     }
-                    pjId = chatRolls[m.quoted.id].id;
+                }
+
+                if (!pjId && m.quoted.text) {
+                    const matchId = m.quoted.text.match(/ID\s*»\s*(\d+)/i);
+                    if (matchId) {
+                        pjId = matchId[1];
+                    }
                 }
             }
 
             if (!pjId || !plantillaPersonajes[pjId]) {
-                return m.reply(`*${config.visuals.emoji2}* Cita el mensaje del personaje que deseas reclamar o escribe su ID.`);
-            }
-
-            const infoPj = await database.getCharacterOwner(group, pjId);
-            if (infoPj && infoPj.status !== 'libre') {
-                return m.reply(`*${config.visuals.emoji2}* ¡Este personaje ya tiene dueño!`);
+                return m.reply(`*${config.visuals.emoji2}* No encontré un personaje válido. Cita el mensaje del roll o escribe su ID directamente (Ej: .c 25)`);
             }
 
             const pjPlantilla = plantillaPersonajes[pjId];
+
+            const infoPj = await database.getCharacterOwner(group, pjId);
+            if (infoPj && infoPj.status !== 'libre') {
+                const duenoJid = infoPj.user_jid;
+                return conn.sendMessage(m.chat, {
+                    text: `*${config.visuals.emoji2}* ¡Demasiado tarde! *${pjPlantilla.name}* ya tiene dueño y le pertenece a @${duenoJid.split('@')[0]}.`,
+                    mentions: [duenoJid]
+                }, { quoted: m });
+            }
+
             const wallet = Number(userDb.wallet || 0);
 
             if (wallet < pjPlantilla.value) {
