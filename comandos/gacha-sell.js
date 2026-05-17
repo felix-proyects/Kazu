@@ -19,10 +19,18 @@ const sellCommand = {
             const group = m.chat;
             const userJid = m.sender;
             const pjId = args[0];
-            const price = parseInt(args[1]);
+            let precioRaw = args[1];
 
-            if (!pjId || isNaN(price)) {
+            if (!pjId || !precioRaw) {
                 return m.reply(`*${config.visuals.emoji2}* \`Uso Incorrecto\`\n• Usa el comando de la siguiente manera:\n> .sell (ID) (Precio)`);
+            }
+
+            // Limpiar el precio de comas, puntos o signos de dinero (Ej: 12,000 -> 12000)
+            precioRaw = precioRaw.replace(/[\$,\.]/g, '');
+            const price = parseInt(precioRaw);
+
+            if (isNaN(price) || price <= 0) {
+                return m.reply(`*${config.visuals.emoji2}* Por favor, ingresa un precio numérico válido.`);
             }
 
             if (!fs.existsSync(gachaPath)) return m.reply(`*${config.visuals.emoji2}* Error: DB Gacha no encontrada.`);
@@ -34,11 +42,17 @@ const sellCommand = {
             }
 
             const infoPj = await database.getCharacterOwner(group, pjId);
+            
+            // Normalizar estrictamente ambas JID para evitar fallos de coincidencia
             const rawUser = userJid.split('@')[0].split(':')[0] + '@s.whatsapp.net';
             const rawOwner = infoPj?.user_jid ? infoPj.user_jid.split('@')[0].split(':')[0] + '@s.whatsapp.net' : null;
 
-            if (!infoPj || rawOwner !== rawUser || infoPj.status === 'en_venta') {
-                return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece o ya está publicado en el mercado!`);
+            if (!infoPj || rawOwner !== rawUser) {
+                return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece o no está en tu colección!`);
+            }
+
+            if (infoPj.status === 'en_venta') {
+                return m.reply(`*${config.visuals.emoji2}* Este personaje ya se encuentra publicado en el mercado.`);
             }
 
             const pjPlantilla = plantillaPersonajes[pjId];
