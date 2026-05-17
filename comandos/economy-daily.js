@@ -1,62 +1,50 @@
 import { database } from '../database.js';
-import { config } from '../config.js';
 
 const dailyCommand = {
     name: 'daily',
-    alias: ['diario', 'claim', 'recompensa'],
+    alias: ['claim', 'diario', 'bono'],
     category: 'economy',
-    desc: 'Reclama tu recompensa diaria con multiplicador por racha de días.',
+    desc: 'Reclama tu bono diario de coins.',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
-            await conn.sendMessage(m.chat, { react: { text: '⌛', key: m.key } });
-
             const user = global.db.data.users[m.sender];
             const now = new Date();
             const lastClaim = new Date(user.last_claim || '1970-01-01T00:00:00.000Z');
 
             const difference = now - lastClaim;
-            const oneDay = 24 * 60 * 60 * 1000;
-            const twoDays = 48 * 60 * 60 * 1000;
+            const cooldownTime = 24 * 60 * 60 * 1000; // 24 Horas en milisegundos
 
-            if (difference < oneDay) {
-                const timeLeft = oneDay - difference;
+            if (difference < cooldownTime) {
+                const timeLeft = cooldownTime - difference;
                 const hours = Math.floor(timeLeft / (1000 * 60 * 60));
                 const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
                 
-                await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
-                return m.reply(`*${config.visuals.emoji2}* Ya has reclamado tu recompensa del día de hoy.\n\nRegresa en: *${hours}h ${minutes}m*`);
+                return m.reply(`*❁ ¡ESPERA UN MOMENTO! ❁*\n\n» Ya has reclamado tu recompensa diaria.\n» Debes esperar *${hours}h ${minutes}m ${seconds}s* para volver a solicitarla.`);
             }
 
-            if (!user.streak || difference >= twoDays) {
-                user.streak = 1;
-            } else {
-                user.streak += 1;
-            }
-
-            const baseReward = 35000;
-            const increment = 10000;
-            const finalReward = baseReward + ((user.streak - 1) * increment);
-
-            user.wallet = (user.wallet || 0) + finalReward;
+            // Guardamos el tiempo exacto actual en formato ISO string
             user.last_claim = now.toISOString();
 
+            // Recompensa aleatoria estética entre 15,000 y 30,000 coins
+            const reward = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
+            user.wallet = (user.wallet || 0) + reward;
+
+            // Guardar directamente en la base de datos sqlite
             await database.saveUser(m.sender, user);
 
-            let txt = `*${config.visuals.emoji1}* ¡RECOMPENSA DIARIA RECLAMADA! *${config.visuals.emoji1}*\n\n`;
-            txt += `*${config.visuals.emoji3}* Has ganado: *💵 ${finalReward.toLocaleString()} coins*\n`;
-            txt += `*${config.visuals.emoji3}* Racha actual: *🔥 ${user.streak} día(s) consecutivo(s)*\n`;
-            txt += `*${config.visuals.emoji3}* Tu cartera actual: *💵 ${user.wallet.toLocaleString()} coins*\n\n`;
-            txt += `Sigue reclamando mañana para obtener *💵 ${(finalReward + increment).toLocaleString()} coins*.`;
+            let txt = `*❁ \`RECOMPENSA DIARIA\` ❁*\n\n`;
+            txt += `» ¡Has recibido tu bono del día con éxito!\n`;
+            txt += `*✰ Ganaste »* $${reward.toLocaleString()} coins\n\n`;
+            txt += `> ✿ Vuelve mañana para seguir acumulando riqueza.`;
 
-            await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
             return m.reply(txt);
 
         } catch (e) {
             console.error(e);
-            await conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } });
-            m.reply(`*${config.visuals.emoji2}* Ocurrió un error interno al procesar tu recompensa.`);
+            m.reply('Ocurrió un error interno al procesar el comando.');
         }
     }
 };
