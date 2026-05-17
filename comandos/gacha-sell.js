@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const gachaPath = path.resolve('./config/database/gacha/gacha_list.json');
 const baseGroup = "120363423871589037@g.us";
@@ -13,15 +14,15 @@ const sellCommand = {
     noPrefix: true,
     isGroup: true,
 
-    run: async (conn, m, args) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const group = m.chat;
-            const user = m.sender.replace(/:.*@/g, '@');
+            const userJid = m.sender;
             const pjId = args[0];
             const price = parseInt(args[1]);
 
             if (!pjId || isNaN(price)) {
-                return m.reply(`*${config.visuals.emoji2}* \`Uso Incorrecto\`\n• Usa el comando de la siguiente manera:\n> #sell (ID) (Precio)`);
+                return m.reply(`*${config.visuals.emoji2}* \`Uso Incorrecto\`\n• Usa el comando de la siguiente manera:\n> .sell (ID) (Precio)`);
             }
 
             if (!fs.existsSync(gachaPath)) return m.reply(`*${config.visuals.emoji2}* Error: DB Gacha no encontrada.`);
@@ -32,43 +33,34 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* El personaje con ID \`${pjId}\` no existe.`);
             }
 
-            if (!global.db.data.chats[group].gacha) global.db.data.chats[group].gacha = {};
-            const dbGrupoGacha = global.db.data.chats[group].gacha;
+            const infoPj = await database.getCharacterOwner(group, pjId);
+            const rawUser = userJid.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+            const rawOwner = infoPj?.user_jid ? infoPj.user_jid.split('@')[0].split(':')[0] + '@s.whatsapp.net' : null;
 
-            const pjInfo = dbGrupoGacha[pjId];
-
-            if (!pjInfo || pjInfo.owner.replace(/:.*@/g, '@') !== user) {
-                return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece!`);
+            if (!infoPj || rawOwner !== rawUser || infoPj.status === 'en_venta') {
+                return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece o ya está publicado en el mercado!`);
             }
 
             const pjPlantilla = plantillaPersonajes[pjId];
             const minPrice = (pjPlantilla.value || 0) + 1000;
 
             if (price < minPrice) {
-                return m.reply(`*${config.visuals.emoji2}* El precio mínimo de venta es *¥${minPrice.toLocaleString()}*.`);
+                return m.reply(`*${config.visuals.emoji2}* El precio mínimo de venta para este personaje es *$${minPrice.toLocaleString()}* coins.`);
             }
 
-            if (!global.db.data.chats[group].shop) global.db.data.chats[group].shop = {};
+            await database.listCharacter(group, userJid, pjId, pjPlantilla.name, price);
 
-            global.db.data.chats[group].shop[pjId] = {
-                id: pjId,
-                name: pjPlantilla.name,
-                seller: user,
-                originalValue: pjPlantilla.value,
-                salePrice: price,
-                date: Date.now()
-            };
+            let txt = `*${config.visuals.emoji3} \`MERCADO PÚBLICO\` ${config.visuals.emoji3}*\n\n`;
+            txt += `» Has puesto en venta a *${pjPlantilla.name}* correctamente.\n`;
+            txt += `*✰ Precio fijado »* $${price.toLocaleString()} coins\n`;
+            txt += `*✰ ID Único »* \`${pjId}\`\n\n`;
+            txt += `> ¡Esperemos que algún coleccionista se interese en tu oferta!`;
 
-            dbGrupoGacha[pjId].status = 'en_venta';
-
-            if (!global.db.data.users[user]) global.db.data.users[user] = {};
-            global.db.data.users[user].lastSell = Date.now();
-
-            m.reply(`*${config.visuals.emoji3}* Has puesto a *${pjPlantilla.name}* en el mercado por *¥${price.toLocaleString()}*.\n\n_ID: ${pjId}_`);
+            return m.reply(txt);
 
         } catch (e) {
             console.error(e);
-            m.reply(`*${config.visuals.emoji2}* Error al poner en venta.`);
+            m.reply(`*${config.visuals.emoji2}* Error al poner en venta el personaje.`);
         }
     }
 };
