@@ -172,7 +172,7 @@ async function startBot() {
 
         let dbUser = await database.getUser(m.sender);
         if (!dbUser) {
-            dbUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z' };
+            dbUser = { wallet: 0, bank: 0, genre: 'No definido', marry: null, last_claim: '1970-01-01T00:00:00.000Z', last_crime: '1970-01-01T00:00:00.000Z', last_work: '1970-01-01T00:00:00.000Z', last_slut: '1970-01-01T00:00:00.000Z', last_flip: '1970-01-01T00:00:00.000Z', last_rob: '1970-01-01T00:00:00.000Z' };
             await database.saveUser(m.sender, dbUser);
         }
         global.db.data.users[m.sender] = dbUser;
@@ -198,6 +198,7 @@ async function startBot() {
             const q = contextInfo.quotedMessage[type];
             m.quoted = {
                 type, msg: q, id: contextInfo.stanzaId, mimetype: q?.mimetype || '',
+                sender: contextInfo.participant,
                 text: q?.text || q?.caption || contextInfo.quotedMessage.conversation || '',
                 key: {
                     remoteJid: m.chat,
@@ -211,54 +212,18 @@ async function startBot() {
             m.quoted = null;
         }
 
-        let body = '';
-        if (msgType === 'conversation') body = m.message.conversation;
-        else if (msgType === 'imageMessage') body = m.message.imageMessage.caption;
-        else if (msgType === 'videoMessage') body = m.message.videoMessage.caption;
-        else if (msgType === 'extendedTextMessage') body = m.message.extendedTextMessage.text;
-        else if (msgType === 'buttonsResponseMessage') body = m.message.buttonsResponseMessage.selectedButtonId;
-        else if (msgType === 'listResponseMessage') body = m.message.listResponseMessage.singleSelectReply.selectedRowId;
-        else if (msgType === 'templateButtonReplyMessage') body = m.message.templateButtonReplyMessage.selectedId;
-
-        const prefix = config.prefix || '/';
-        const isCmd = body.startsWith(prefix);
-        const commandText = isCmd ? body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase() : '';
-        const args = body.trim().split(/ +/).slice(1);
-        const text = args.join(' ');
-
         logger(m, conn);
         await antiLinkHandler(conn, m);
-
-        if (isCmd || m.noPrefix) {
-            const checkCmd = commandText || body.trim().split(/ +/).shift().toLowerCase();
-            const cmd = global.commands.get(checkCmd) || Array.from(global.commands.values()).find(c => (c.alias && c.alias.includes(checkCmd)) || (c.aliases && c.aliases.includes(checkCmd)));
-            
-            if (cmd && (isCmd || cmd.noPrefix)) {
-                if (cmd.cooldown) {
-                    if (!global.db.data.users[m.sender].cooldowns) {
-                        global.db.data.users[m.sender].cooldowns = {};
-                    }
-                    const now = Date.now();
-                    const expirationTime = (global.db.data.users[m.sender].cooldowns[cmd.name] || 0) + (cmd.cooldown * 1000);
-                    if (now < expirationTime) {
-                        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-                        return m.reply(`Por favor espera ${timeLeft} segundos antes de usar el comando *${cmd.name}* nuevamente.`);
-                    }
-                    global.db.data.users[m.sender].cooldowns[cmd.name] = now;
-                }
-                try {
-                    await cmd.run(conn, m, args, prefix, checkCmd, text);
-                } catch (cmdErr) {
-                    console.error(cmdErr);
-                }
-            }
-        }
 
         await pixelHandler(conn, m, config);
 
         try {
-            await database.saveUser(m.sender, global.db.data.users[m.sender]);
-            if (isGroup) await database.saveChat(m.chat, global.db.data.chats[m.chat]);
+            if (global.db.data.users[m.sender]) {
+                await database.saveUser(m.sender, global.db.data.users[m.sender]);
+            }
+            if (isGroup && global.db.data.chats[m.chat]) {
+                await database.saveChat(m.chat, global.db.data.chats[m.chat]);
+            }
         } catch (dbErr) {
             console.error(dbErr);
         }
