@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
-import { database, query } from '../database.js';
+import { database } from '../database.js';
 
 const gachaPath = path.resolve('./config/database/gacha/gacha_list.json');
 const baseGroup = "120363423871589037@g.us";
@@ -25,7 +25,6 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* \`Uso Incorrecto\`\n• Usa el comando de la siguiente manera:\n> .sell (ID) (Precio)`);
             }
 
-            // Limpiar formato de precio (Ej: 12,000 -> 12000)
             precioRaw = precioRaw.replace(/[\$,\.]/g, '');
             const price = parseInt(precioRaw);
 
@@ -41,15 +40,17 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* El personaje con ID \`${pjId}\` no existe.`);
             }
 
-            // Obtener el dueño actual
             const infoPj = await database.getCharacterOwner(group, pjId);
             
-            // Normalización idéntica a la interna de la DB
             const rawUser = userJid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
             const rawOwner = infoPj?.user_jid ? infoPj.user_jid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net' : null;
 
             if (!infoPj || rawOwner !== rawUser) {
                 return m.reply(`*${config.visuals.emoji2}* ¡Este personaje no te pertenece o no está en tu colección!`);
+            }
+
+            if (infoPj.status === 'en_venta') {
+                return m.reply(`*${config.visuals.emoji2}* Este personaje ya se encuentra publicado en el mercado.`);
             }
 
             const pjPlantilla = plantillaPersonajes[pjId];
@@ -59,24 +60,13 @@ const sellCommand = {
                 return m.reply(`*${config.visuals.emoji2}* El precio mínimo de venta para este personaje es *$${minPrice.toLocaleString()}* coins.`);
             }
 
-            // Bypass de la transacción tradicional usando INSERT OR REPLACE directo a la DB
-            // Evita el error de clave duplicada y actualiza el estado del harem de forma segura
-            await query(`
-                INSERT OR REPLACE INTO gacha_shop (group_jid, seller_jid, character_id, character_name, sale_price) 
-                VALUES (?, ?, ?, ?, ?)
-            `, [group, rawUser, pjId, pjPlantilla.name, price]);
-
-            await query(`
-                UPDATE gacha_ownership 
-                SET status = 'en_venta' 
-                WHERE group_jid = ? AND character_id = ?
-            `, [group, pjId]);
+            await database.listCharacter(group, userJid, pjId, pjPlantilla.name, price);
 
             let txt = `*${config.visuals.emoji3} \`MERCADO PÚBLICO\` ${config.visuals.emoji3}*\n\n`;
             txt += `» Has puesto en venta a *${pjPlantilla.name}* correctamente.\n`;
             txt += `*✰ Precio fijado »* $${price.toLocaleString()} coins\n`;
             txt += `*✰ ID Único »* \`${pjId}\`\n\n`;
-            txt += `> ¡Esperemos que algún coleccionista se interese en tu oferta!`;
+            txt += `\n> ¡Esperemos que algún coleccionista se interese en tu oferta!`;
 
             return m.reply(txt);
 
