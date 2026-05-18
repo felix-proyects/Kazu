@@ -5,7 +5,7 @@ const setAge = {
     name: 'setage',
     alias: ['estableceredad', 'miedad'],
     category: 'profile',
-    desc: 'Registra tu edad en tu perfil de la base de datos de forma limpia.',
+    desc: 'Registra tu edad en tu perfil de la base de datos.',
     noPrefix: true,
 
     run: async (conn, m, args) => {
@@ -49,7 +49,10 @@ const setAge = {
 
             currentBirthdayData.age = edad;
 
+            // Asegurar que guardamos el objeto actualizado como un string JSON en la propiedad correcta
             userDb.birthday = JSON.stringify(currentBirthdayData);
+            
+            // Forzar el guardado explícito
             await database.saveUser(cleanSenderJid, userDb);
 
             m.reply(`*${config.visuals.emoji3} \`EDAD REGISTRADA\` ${config.visuals.emoji3}*\n\nTu edad se ha guardado correctamente.\n\n*❁ Edad:* \`${edad} años\``);
