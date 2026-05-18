@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const delAge = {
     name: 'delage',
@@ -9,15 +10,15 @@ const delAge = {
 
     run: async (conn, m) => {
         try {
-            const userJid = m.sender.replace(/:.*@/g, '@');
-            const userDb = global.db.data.users[userJid];
+            let userDb = await database.getUser(m.sender);
 
             if (!userDb || !userDb.birthday) {
                 return m.reply(`*${config.visuals.emoji2} \`DATO INEXISTENTE\` ${config.visuals.emoji2}*\n\nNo hay edad registrada.`);
             }
 
-            delete userDb.birthday;
-            
+            userDb.birthday = null;
+            await database.saveUser(m.sender, userDb);
+
             m.reply(`*${config.visuals.emoji3} \`EDAD PURGADA\` ${config.visuals.emoji3}*\n\nEdad eliminada del registro.\n\n> ¡Vuelve a ser joven eternamente!`);
         } catch (e) {
             console.error(e);
