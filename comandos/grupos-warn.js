@@ -4,6 +4,7 @@ const warnConfigCommand = {
     name: 'warn',
     alias: ['warnings', 'advertencias'],
     category: 'grupos',
+    desc: 'Activa las advertencias en el grupo.',
     noPrefix: true,
     isGroup: true,
 
