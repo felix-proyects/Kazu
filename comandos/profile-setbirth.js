@@ -1,40 +1,51 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const setBirth = {
     name: 'setbirth',
-    alias: ['cumpleaños'],
+    alias: ['setcumple', 'micumple'],
     category: 'profile',
-    desc: 'Registra tu fecha de nacimiento (DD/MM/AAAA) para calcular tu edad y cumpleaños.',
+    desc: 'Registra tu fecha de cumpleaños (DD/MM) en tu perfil.',
     noPrefix: true,
 
     run: async (conn, m, args) => {
         try {
-            const userJid = m.sender.replace(/:.*@/g, '@');
-            if (!global.db.data.users[userJid]) global.db.data.users[userJid] = {};
-            const userDb = global.db.data.users[userJid];
+            const fechaInput = args[0];
 
-            if (!args[0]) return m.reply(`*${config.visuals.emoji2} \`FALTAN DATOS\` ${config.visuals.emoji2}*\n\nUso: #setbirth DD/MM/AAAA`);
+            if (!fechaInput) {
+                return m.reply(`*${config.visuals.emoji2} \`FALTA FECHA\` ${config.visuals.emoji2}*\n\nIngresa tu fecha de nacimiento en formato Día/Mes.\n\n» Ejemplo: *setbirth 14/02*`);
+            }
 
-            const regex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-            const match = args[0].match(regex);
-            if (!match) return m.reply(`*${config.visuals.emoji2} \`FORMATO INVÁLIDO\` ${config.visuals.emoji2}*\n\nUsa: DD/MM/AAAA`);
+            const regexFecha = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])$/;
+            if (!regexFecha.test(fechaInput)) {
+                return m.reply(`*${config.visuals.emoji2} \`FORMATO ERRÓNEO\` ${config.visuals.emoji2}*\n\nUsa el formato exacto de dos dígitos para el día y dos para el mes (DD/MM).\n\n» Ejemplo: *setbirth 05/09*`);
+            }
 
-            const day = parseInt(match[1]);
-            const month = parseInt(match[2]);
-            const year = parseInt(match[3]);
-            const age = 2026 - year;
+            let userDb = await database.getUser(m.sender);
+            if (!userDb) {
+                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, birthday: null };
+            }
 
-            if (age < 8 || age > 85) return m.reply(`*${config.visuals.emoji2} \`RANGO INVÁLIDO\` ${config.visuals.emoji2}*\n\nSolo de 8 a 85 años.`);
+            let currentBirthdayData = { age: 'No definida', date: null };
 
-            userDb.birthday = { 
-                date: `${day}/${month}/${year}`, 
-                age: age 
-            };
+            if (userDb.birthday) {
+                try {
+                    currentBirthdayData = typeof userDb.birthday === 'string' ? JSON.parse(userDb.birthday) : userDb.birthday;
+                } catch (e) {
+                    currentBirthdayData = { age: 'No definida', date: null };
+                }
+            }
 
-            m.reply(`*${config.visuals.emoji3} \`CRONOLOGÍA FIJADA\` ${config.visuals.emoji3}*\n\nFecha: *${day}/${month}/${year}*\nEdad: *${age} años*\n\n> ¡Tu lugar en el tiempo ha sido asegurado!`);
+            currentBirthdayData.date = fechaInput;
+
+            userDb.birthday = JSON.stringify(currentBirthdayData);
+            await database.saveUser(m.sender, userDb);
+
+            m.reply(`*${config.visuals.emoji3} \`CUMPLEAÑOS REGISTRADO\` ${config.visuals.emoji3}*\n\nTu fecha de nacimiento ha sido configurada en el sistema de manera global.\n\n*❁ Fecha:* \`${fechaInput}\``);
+
         } catch (e) {
             console.error(e);
-            m.reply('✘ Error en la matriz de tiempo.');
+            m.reply('✘ Error al registrar cronología.');
         }
     }
 };
