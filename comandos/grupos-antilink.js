@@ -4,13 +4,13 @@ export default async function antiLinkHandler(conn, m) {
     if (!m.chat.endsWith('@g.us')) return;
 
     const dbChat = await database.getChat(m.chat);
-    if (dbChat && dbChat.antilink === false) return;
+    if (dbChat && dbChat.antilink === 0) return;
 
     const body = (
-        m.message.conversation || 
-        m.message.extendedTextMessage?.text || 
-        m.message.imageMessage?.caption || 
-        m.message.videoMessage?.caption || ""
+        m.message?.conversation || 
+        m.message?.extendedTextMessage?.text || 
+        m.message?.imageMessage?.caption || 
+        m.message?.videoMessage?.caption || ""
     ).trim();
 
     const forbiddenLinks = [
@@ -28,7 +28,7 @@ export default async function antiLinkHandler(conn, m) {
 
     if (containsForbidden) {
         const { isAdmin, isBotAdmin } = await conn.getAdminStatus(m.chat, m.sender);
-        
+
         if (isAdmin) return;
         if (!isBotAdmin) return;
 
@@ -37,7 +37,6 @@ export default async function antiLinkHandler(conn, m) {
         const participants = metadata ? metadata.participants.map(p => p.id) : [];
 
         await conn.sendMessage(m.chat, { delete: m.key });
-
         await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove');
 
         let txt = `*✿︎ \`ANTILINK DETECTED\` ✿︎*\n\n`;
