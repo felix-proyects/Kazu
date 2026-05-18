@@ -3,6 +3,11 @@ import { database } from '../database.js';
 export default async function antiLinkHandler(conn, m) {
     if (!m.chat.endsWith('@g.us')) return;
 
+    const botJid = conn.user.id.split(':')[0].trim() + '@s.whatsapp.net';
+    const senderJid = m.sender.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
+
+    if (senderJid === botJid) return;
+
     const dbChat = await database.getChat(m.chat);
     if (dbChat && dbChat.antilink === 0) return;
 
@@ -29,10 +34,10 @@ export default async function antiLinkHandler(conn, m) {
     if (containsForbidden) {
         const { isAdmin, isBotAdmin } = await conn.getAdminStatus(m.chat, m.sender);
 
-        if (isAdmin) return;
+        if (isAdmin) return; 
         if (!isBotAdmin) return;
 
-        const userNumber = m.sender.split('@')[0].split(':')[0];
+        const userNumber = senderJid.split('@')[0];
         const metadata = await conn.groupMetadata(m.chat).catch(() => null);
         const participants = metadata ? metadata.participants.map(p => p.id) : [];
 
