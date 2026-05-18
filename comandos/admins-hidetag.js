@@ -2,7 +2,7 @@ import { config } from '../config.js';
 
 const hidetagCommand = {
     name: 'hidetag',
-    alias: ['tag', 'n', notify'],
+    alias: ['tag', 'n', 'notify'],
     category: 'admins',
     desc: 'Realiza una mención masiva invisible clonando el contenido enviado.',
     noPrefix: true,
