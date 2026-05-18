@@ -159,5 +159,11 @@ export const database = {
 };
 
 export const query = async (t, p = []) => {
-    return { rows: db.prepare(t).all(...p) };
+    const cleanQuery = t.trim().toLowerCase();
+    if (cleanQuery.startsWith('select')) {
+        return { rows: db.prepare(t).all(...p) };
+    } else {
+        const res = db.prepare(t).run(...p);
+        return { rows: [], ...res };
+    }
 };
