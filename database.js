@@ -26,6 +26,9 @@ try {
 try {
     db.prepare("ALTER TABLE users ADD COLUMN last_claim_pj TEXT DEFAULT '1970-01-01T00:00:00.000Z'").run();
 } catch (e) {}
+try {
+    db.prepare("ALTER TABLE chats ADD COLUMN warn INTEGER DEFAULT 0").run();
+} catch (e) {}
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -47,7 +50,14 @@ db.exec(`
         jid TEXT PRIMARY KEY,
         welcome INTEGER DEFAULT 0,
         antilink INTEGER DEFAULT 0,
-        detect INTEGER DEFAULT 0
+        detect INTEGER DEFAULT 0,
+        warn INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS warnings (
+        group_jid TEXT,
+        user_jid TEXT,
+        count INTEGER DEFAULT 0,
+        PRIMARY KEY (group_jid, user_jid)
     );
     CREATE TABLE IF NOT EXISTS gacha_ownership (
         group_jid TEXT,
@@ -104,13 +114,13 @@ export const database = {
         return db.prepare('SELECT * FROM chats WHERE jid = ?').get(j) || null;
     },
     saveChat: async (j, d) => {
-        const { welcome = 0, antilink = 0, detect = 0 } = d;
+        const { welcome = 0, antilink = 0, detect = 0, warn = 0 } = d;
         db.prepare(`
-            INSERT INTO chats (jid, welcome, antilink, detect)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO chats (jid, welcome, antilink, detect, warn)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(jid) DO UPDATE SET
-            welcome = excluded.welcome, antilink = excluded.antilink, detect = excluded.detect
-        `).run(j, welcome, antilink, detect);
+            welcome = excluded.welcome, antilink = excluded.antilink, detect = excluded.detect, warn = excluded.warn
+        `).run(j, welcome, antilink, detect, warn);
     },
     getHarem: async (g, u) => {
         const c = normalizeJid(u);
