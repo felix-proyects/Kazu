@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database, query } from '../database.js';
 
 const profileCommand = {
     name: 'profile',
@@ -16,32 +17,56 @@ const profileCommand = {
                 rawTarget = m.quoted.key.participant || m.quoted.key.remoteJid;
             }
 
-            const targetJid = rawTarget.replace(/:.*@/g, '@');
+            const targetJid = rawTarget.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
             const userShortId = targetJid.split('@')[0];
             const group = m.chat;
 
-            const userGlobal = global.db.data.users[targetJid] || {};
-            const groupData = global.db.data.chats[group] || {};
-            const userRpg = groupData.rpg?.[targetJid] || { minerals: {}, rank: 'Novato de las Cuevas' };
-            const userGacha = groupData.gacha || {};
+            let userDb = await database.getUser(targetJid);
+            if (!userDb) {
+                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, birthday: null };
+            }
 
-            const genero = userGlobal.genre || 'No definido';
-            const age = userGlobal.birthday?.age || 'No definida';
-            const cumple = userGlobal.birthday?.date || 'No definido';
-            const parejaJid = userGlobal.marry ? userGlobal.marry.replace(/:.*@/g, '@') : null;
+            const haremResult = await database.getHarem(group, targetJid);
+            const totalPjs = haremResult ? haremResult.length : 0;
+
+            let rpgCheck = await query("SELECT rank, diamantes, rubies, oro, esmeraldas, zafiros, amatistas, perlas FROM rpg WHERE group_jid = ? AND user_jid = ?", [group, targetJid]);
+            let rpgData = rpgCheck.rows && rpgCheck.rows.length > 0 ? rpgCheck.rows[0] : {
+                rank: 'Novato de las Cuevas',
+                diamantes: 0,
+                rubies: 0,
+                oro: 0,
+                esmeraldas: 0,
+                zafiros: 0,
+                amatistas: 0,
+                perlas: 0
+            };
+
+            const genero = userDb.genre || 'No definido';
+            
+            let age = 'No definida';
+            let cumple = 'No definido';
+            if (userDb.birthday) {
+                try {
+                    const parsedBirth = typeof userDb.birthday === 'string' ? JSON.parse(userDb.birthday) : userDb.birthday;
+                    age = parsedBirth.age || 'No definida';
+                    cumple = parsedBirth.date || 'No definido';
+                } catch {
+                    if (userDb.birthday?.age) age = userDb.birthday.age;
+                    if (userDb.birthday?.date) cumple = userDb.birthday.date;
+                }
+            }
+
+            const parejaJid = userDb.marry ? userDb.marry.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net' : null;
             const pareja = parejaJid ? `@${parejaJid.split('@')[0]}` : 'Soltero/a';
 
             const mentions = [targetJid];
             if (parejaJid) mentions.push(parejaJid);
 
-            const wallet = Number(userGlobal.wallet) || 0;
-            const bank = Number(userGlobal.bank) || 0;
+            const wallet = Number(userDb.wallet) || 0;
+            const bank = Number(userDb.bank) || 0;
 
-            const userPjs = Object.values(userGacha).filter(pj => pj.owner && pj.owner.replace(/:.*@/g, '@') === targetJid);
-            const totalPjs = userPjs.length;
-
-            const rank = userRpg.rank || 'Novato de las Cuevas';
-            const minerals = userRpg.minerals || {};
+            const rank = rpgData.rank || 'Novato de las Cuevas';
+            const totalGemas = Number(rpgData.esmeraldas || 0) + Number(rpgData.zafiros || 0) + Number(rpgData.amatistas || 0) + Number(rpgData.perlas || 0);
 
             let pp;
             try { 
@@ -56,7 +81,7 @@ const profileCommand = {
             txt += `*✿︎ Edad:* ${age}\n`;
             txt += `*✿︎ Cumpleaños:* ${cumple}\n`;
             txt += `*✿︎ Pareja:* ${pareja}\n\n`;
-            
+
             txt += `*✿︎ INFO ECONOMY* ✿︎\n`;
             txt += `> ⴵ Cartera: *¥${wallet.toLocaleString()}*\n`;
             txt += `> ⴵ Banco: *¥${bank.toLocaleString()}*\n`;
@@ -67,10 +92,10 @@ const profileCommand = {
 
             txt += `*✿︎ INFO RPG ✿︎*\n`;
             txt += `> ⴵ Rango: *${rank}*\n`;
-            txt += `> ⴵ Diamantes: *${minerals.diamantes || 0}*\n`;
-            txt += `> ⴵ Rubíes: *${minerals.rubies || 0}*\n`;
-            txt += `> ⴵ Oro: *${minerals.oro || 0}*\n`;
-            txt += `> ⴵ Gemas: *${(Number(minerals.esmeraldas || 0) + Number(minerals.zafiros || 0) + Number(minerals.amatistas || 0) + Number(minerals.perlas || 0))}*`;
+            txt += `> ⴵ Diamantes: *${rpgData.diamantes || 0}*\n`;
+            txt += `> ⴵ Rubíes: *${rpgData.rubies || 0}*\n`;
+            txt += `> ⴵ Oro: *${rpgData.oro || 0}*\n`;
+            txt += `> ⴵ Gemas: *${totalGemas}*`;
 
             await conn.sendMessage(m.chat, { 
                 image: { url: pp }, 
