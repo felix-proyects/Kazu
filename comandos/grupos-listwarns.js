@@ -3,7 +3,7 @@ import { query } from '../database.js';
 
 const listWarnsCommand = {
     name: 'listwarns',
-    alias: ['warnslist', 'listwarn', 'advertidos'],
+    alias: ['listwarn', 'warns'],
     category: 'grupo',
     noPrefix: true,
     isGroup: true,
