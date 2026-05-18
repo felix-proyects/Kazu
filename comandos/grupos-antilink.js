@@ -6,7 +6,7 @@ export default async function antiLinkHandler(conn, m) {
     const botJid = conn.user.id.split(':')[0].trim() + '@s.whatsapp.net';
     const senderJid = m.sender.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
 
-    if (senderJid === botJid) return;
+    if (senderJid === botJid || m.sender.includes('@g.us') || !m.sender.includes('@s.whatsapp.net')) return;
 
     const dbChat = await database.getChat(m.chat);
     if (dbChat && dbChat.antilink === 0) return;
