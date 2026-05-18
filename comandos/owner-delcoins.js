@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const removeCoins = {
     name: 'removecoins',
@@ -23,8 +24,8 @@ const removeCoins = {
                 return m.reply(`*${config.visuals.emoji2}* \`Usuario Requerido\`\n\nMenciona a alguien o responde a su mensaje.`);
             }
 
-            const targetJid = rawTarget.replace(/:.*@/g, '@');
-            const userDb = global.db.data.users[targetJid];
+            const targetJid = rawTarget.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
+            const userDb = await database.getUser(targetJid);
             const userId = targetJid.split('@')[0];
 
             if (!userDb || ((userDb.wallet || 0) + (userDb.bank || 0)) <= 0) {
@@ -59,6 +60,8 @@ const removeCoins = {
                     userDb.bank = Math.max(0, (userDb.bank || 0) - restante);
                 }
             }
+
+            await database.saveUser(targetJid, userDb);
 
             const texto = `*${config.visuals.emoji3}* \`SANCIÓN ECONÓMICA\` *${config.visuals.emoji3}*\n\n*❁ Usuario:* @${userId}\n*❁ Monto Retirado:* \`¥${retiradoReal.toLocaleString()}\` ${isAll ? '*(TODO)*' : ''}\n\n*${config.visuals.emoji} Cartera:* ¥${(userDb.wallet || 0).toLocaleString()}\n*${config.visuals.emoji4} Banco:* ¥${(userDb.bank || 0).toLocaleString()}\n\n> Los fondos han sido confiscados correctamente.`;
 
