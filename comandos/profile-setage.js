@@ -1,33 +1,52 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const setAge = {
     name: 'setage',
-    alias: ['edad'],
+    alias: ['estableceredad', 'miedad'],
     category: 'profile',
-    desc: 'Registra tu edad actual en tu perfil (Rango: 8 - 85 años).',
+    desc: 'Registra tu edad en tu perfil.',
     noPrefix: true,
 
     run: async (conn, m, args) => {
         try {
-            const userJid = m.sender.replace(/:.*@/g, '@');
-            if (!global.db.data.users[userJid]) global.db.data.users[userJid] = {};
-            const userDb = global.db.data.users[userJid];
+            const edadInput = args[0];
 
-            if (!args[0]) return m.reply(`*${config.visuals.emoji2} \`FALTAN DATOS\` ${config.visuals.emoji2}*\n\nUso: #setage [número]`);
+            if (!edadInput) {
+                return m.reply(`*${config.visuals.emoji2} \`FALTA EDAD\` ${config.visuals.emoji2}*\n\nIngresa tu edad después del comando.\n\n» Ejemplo: *setage 19*`);
+            }
 
-            const age = parseInt(args[0]);
-            if (isNaN(age) || age < 8 || age > 85) return m.reply(`*${config.visuals.emoji2} \`RANGO EXCEDIDO\` ${config.visuals.emoji2}*\n\nSolo de 8 a 85 años.`);
+            const edad = parseInt(edadInput.replace(/[^0-9]/g, ''));
 
-            const estimatedYear = 2026 - age;
-            userDb.birthday = { 
-                date: `01/01/${estimatedYear}`, 
-                age: age 
-            };
+            if (isNaN(edad) || edad <= 0 || edad > 100) {
+                return m.reply(`*${config.visuals.emoji2} \`EDAD INVÁLIDA\` ${config.visuals.emoji2}*\n\nIngresa un número de edad lógico y válido.`);
+            }
 
-            m.reply(`*${config.visuals.emoji3} \`EDAD REGISTRADA\` ${config.visuals.emoji3}*\n\nEdad: *${age} años*\n\n> ¡Tu perfil ha sido actualizado!`);
+            let userDb = await database.getUser(m.sender);
+            if (!userDb) {
+                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, birthday: null };
+            }
+
+            let currentBirthdayData = { age: null, date: 'No definido' };
+
+            if (userDb.birthday) {
+                try {
+                    currentBirthdayData = typeof userDb.birthday === 'string' ? JSON.parse(userDb.birthday) : userDb.birthday;
+                } catch (e) {
+                    currentBirthdayData = { age: null, date: 'No definido' };
+                }
+            }
+
+            currentBirthdayData.age = edad;
+
+            userDb.birthday = JSON.stringify(currentBirthdayData);
+            await database.saveUser(m.sender, userDb);
+
+            m.reply(`*${config.visuals.emoji3} \`EDAD REGISTRADA\` ${config.visuals.emoji3}*\n\nTu edad se ha guardado correctamente.\n\n*❁ Edad:* \`${edad} años\``);
+
         } catch (e) {
             console.error(e);
-            m.reply('✘ Error al procesar edad.');
+            m.reply('✘ Error al guardar la edad.');
         }
     }
 };
