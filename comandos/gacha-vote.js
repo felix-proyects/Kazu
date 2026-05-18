@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
+import { database, query } from '../database.js';
 
 const gachaPath = path.resolve('./config/database/gacha/gacha_list.json');
 const baseGroup = "120363423871589037@g.us";
@@ -13,10 +14,10 @@ const voteCommand = {
     noPrefix: true,
     isGroup: true,
 
-    run: async (conn, m, args) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const group = m.chat;
-            const user = m.sender.replace(/:.*@/g, '@');
+            const userJid = m.sender;
             const pjId = args[0];
 
             if (!pjId) return m.reply(`*${config.visuals.emoji2}* Indica el ID del personaje que deseas votar.`);
@@ -29,30 +30,26 @@ const voteCommand = {
                 return m.reply(`*${config.visuals.emoji2}* El personaje no existe.`);
             }
 
-            if (!global.db.data.chats[group].gacha) global.db.data.chats[group].gacha = {};
-            const dbGrupoGacha = global.db.data.chats[group].gacha;
+            const infoPj = await database.getCharacterOwner(group, pjId);
+            
+            const rawUser = userJid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
+            const rawOwner = infoPj?.user_jid ? infoPj.user_jid.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net' : null;
 
-            const pjInfo = dbGrupoGacha[pjId];
-
-            if (!pjInfo || pjInfo.owner.replace(/:.*@/g, '@') !== user) {
+            if (!infoPj || rawOwner !== rawUser) {
                 return m.reply(`*${config.visuals.emoji2}* ¡No puedes votar a un personaje que no te pertenece!`);
             }
 
             const pjName = plantillaPersonajes[pjId].name;
 
-            dbGrupoGacha[pjId] = {
-                status: 'libre',
-                owner: null
-            };
+            await query("DELETE FROM gacha_ownership WHERE group_jid = ? AND character_id = ?", [group, pjId]);
+            await query("DELETE FROM gacha_shop WHERE group_jid = ? AND character_id = ?", [group, pjId]);
 
-            if (global.db.data.chats[group].shop && global.db.data.chats[group].shop[pjId]) {
-                delete global.db.data.chats[group].shop[pjId];
-            }
+            let txt = `*${config.visuals.emoji3} \`LIBERACIÓN DE PERSONAJE\` ${config.visuals.emoji3}*\n\n`;
+            txt += `» Has liberado a *${pjName}* correctamente.\n`;
+            txt += `*✰ ID Único »* \`${pjId}\`\n\n`;
+            txt += `> Ahora es libre y ha sido retirado de cualquier mercado en este grupo.`;
 
-            if (!global.db.data.users[user]) global.db.data.users[user] = {};
-            global.db.data.users[user].lastVote = Date.now();
-
-            m.reply(`*${config.visuals.emoji3}* Has votado a *${pjName}*. Ahora es libre y ha sido retirado de cualquier mercado en este grupo.`);
+            return m.reply(txt);
 
         } catch (e) {
             console.error(e);
