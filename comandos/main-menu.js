@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 import fs from 'fs-extra';
 import path from 'path';
 
@@ -12,9 +13,8 @@ const menuCommand = {
     run: async (conn, m, args, usedPrefix) => {
         try {
             const prefix = usedPrefix || '#'; 
-            const userJid = m.sender.replace(/:.*@/g, '@');
+            const userJid = m.sender.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
             const userShortId = userJid.split('@')[0];
-            const group = m.chat;
 
             const commandsSource = conn.commands || global.commands;
             if (!commandsSource) return m.reply('Error: No se pudo acceder a la lista de comandos.');
@@ -49,14 +49,11 @@ const menuCommand = {
                 if (localData.banner) displayBanner = localData.banner;
             }
 
-            const userGlobal = global.db.data.users[userJid] || {};
-            const wallet = (userGlobal.wallet || 0) + (userGlobal.bank || 0);
-            
-            const groupData = global.db.data.chats[group] || {};
-            const userRpg = groupData.rpg?.[userJid] || {};
-            
-            const rank = userRpg.rank || 'Novato de las Cuevas';
-            const diamantes = userRpg.minerals?.diamantes || 0;
+            const dbUser = await database.getUser(userJid) || {};
+            const wallet = (dbUser.wallet || 0) + (dbUser.bank || 0);
+
+            const rank = 'Novato de las Cuevas';
+            const diamantes = 0;
 
             const infoBot = `┏━━━━✿︎ 𝐈𝐍𝐅𝐎-𝐁𝐎𝐓 ✿︎━━━━╮
 ┃ ✐ *Owner* »
@@ -69,7 +66,7 @@ const menuCommand = {
 ┃ https://whatsapp.com/channel/0029Vb6sgWdJkK73qeLU0J0N
 ╰━━━━━━━━━━━━━━━━━━━╯\n`;
 
-            const infoUser = `┏━━━━✿︎ 𝐈𝐍𝐅𝐎-𝐔𝐒𝐄𝐑 ✿︎━━━━╮
+            const infoUser = `┏━━━━✿︎ 𝐈𝐍𝐅𝐎-𝐔𝐒𝐄𝐑 ━━━━╮
 ┃ ✐ *Usuario* »  @${userShortId}
 ┃ ✐ *Rango* » ${rank}
 ┃ ✐ *Coins* » ¥${wallet.toLocaleString()}
