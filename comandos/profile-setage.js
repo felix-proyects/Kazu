@@ -5,7 +5,7 @@ const setAge = {
     name: 'setage',
     alias: ['estableceredad', 'miedad'],
     category: 'profile',
-    desc: 'Registra tu edad en tu perfil de la base de datos.',
+    desc: 'Registra tu edad en tu perfil de la base de datos de forma limpia.',
     noPrefix: true,
 
     run: async (conn, m, args) => {
@@ -30,7 +30,9 @@ const setAge = {
                 return m.reply(`*${config.visuals.emoji2}* Eres muy mayor como para andar jugando con esto.`);
             }
 
-            let userDb = await database.getUser(m.sender);
+            const cleanSenderJid = m.sender.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
+
+            let userDb = await database.getUser(cleanSenderJid);
             if (!userDb) {
                 userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null, birthday: null };
             }
@@ -48,7 +50,7 @@ const setAge = {
             currentBirthdayData.age = edad;
 
             userDb.birthday = JSON.stringify(currentBirthdayData);
-            await database.saveUser(m.sender, userDb);
+            await database.saveUser(cleanSenderJid, userDb);
 
             m.reply(`*${config.visuals.emoji3} \`EDAD REGISTRADA\` ${config.visuals.emoji3}*\n\nTu edad se ha guardado correctamente.\n\n*❁ Edad:* \`${edad} años\``);
 
