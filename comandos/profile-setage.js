@@ -5,7 +5,7 @@ const setAge = {
     name: 'setage',
     alias: ['estableceredad', 'miedad'],
     category: 'profile',
-    desc: 'Registra tu edad en tu perfil.',
+    desc: 'Registra tu edad en tu perfil de la base de datos.',
     noPrefix: true,
 
     run: async (conn, m, args) => {
@@ -18,8 +18,16 @@ const setAge = {
 
             const edad = parseInt(edadInput.replace(/[^0-9]/g, ''));
 
-            if (isNaN(edad) || edad <= 0 || edad > 100) {
-                return m.reply(`*${config.visuals.emoji2} \`EDAD INVÁLIDA\` ${config.visuals.emoji2}*\n\nIngresa un número de edad lógico y válido.`);
+            if (isNaN(edad)) {
+                return m.reply(`*${config.visuals.emoji2} \`DATO INVÁLIDO\` ${config.visuals.emoji2}*\n\nIngresa una cantidad numérica válida.`);
+            }
+
+            if (edad < 8) {
+                return m.reply(`*${config.visuals.emoji2}* Eres muy chiquito para andar usando bots.`);
+            }
+
+            if (edad > 85) {
+                return m.reply(`*${config.visuals.emoji2}* Eres muy mayor como para andar jugando con esto.`);
             }
 
             let userDb = await database.getUser(m.sender);
@@ -46,7 +54,7 @@ const setAge = {
 
         } catch (e) {
             console.error(e);
-            m.reply('✘ Error al guardar la edad.');
+            m.reply('✘ Error interno al guardar la edad.');
         }
     }
 };
