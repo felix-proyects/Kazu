@@ -19,7 +19,14 @@ const deleteCommand = {
                 return m.reply(`*${config.visuals.emoji2}* Solo los administradores pueden usar este comando.`);
             }
 
-            await conn.sendMessage(m.chat, { delete: m.quoted.fakeObj.key });
+            const targetKey = m.quoted.vM?.key || {
+                remoteJid: m.chat,
+                fromMe: m.quoted.fromMe,
+                id: m.quoted.id,
+                participant: m.quoted.sender
+            };
+
+            await conn.sendMessage(m.chat, { delete: targetKey });
 
         } catch (e) {
             console.error(e);
