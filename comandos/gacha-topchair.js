@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
+import { query } from '../database.js';
 
 const gachaPath = path.resolve('./config/database/gacha/gacha_list.json');
 const baseGroup = "120363423871589037@g.us";
@@ -13,29 +14,38 @@ const topPjsCommand = {
     noPrefix: true,
     isGroup: true,
 
-    run: async (conn, m, args) => {
+    run: async (conn, m, args, usedPrefix, commandName, text) => {
         try {
             const group = m.chat;
-            
+
             if (!fs.existsSync(gachaPath)) return m.reply(`*${config.visuals.emoji2}* Error: Base de datos no encontrada.`);
             const rawData = JSON.parse(fs.readFileSync(gachaPath, 'utf-8'));
             const plantillaPersonajes = rawData[baseGroup];
 
-            const dbGrupoGacha = global.db.data.chats[group]?.gacha || {};
-
             let page = 1;
-            if (args[0] && !isNaN(args[0])) {
+            if (args && args[0] && !isNaN(args[0])) {
                 page = parseInt(args[0]);
             }
 
+            const res = await query('SELECT character_id, user_jid, status FROM gacha_ownership WHERE group_jid = ?', [group]);
+            const dbOwners = res.rows || [];
+
+            const ownershipMap = {};
+            dbOwners.forEach(row => {
+                ownershipMap[row.character_id] = {
+                    owner: row.user_jid,
+                    status: row.status
+                };
+            });
+
             let allPjs = Object.keys(plantillaPersonajes).map(id => {
-                const infoGrupo = dbGrupoGacha[id] || { status: 'libre', owner: null };
+                const infoDb = ownershipMap[id] || { status: 'libre', owner: null };
                 return {
                     id,
                     name: plantillaPersonajes[id].name,
                     value: plantillaPersonajes[id].value,
-                    status: infoGrupo.status,
-                    owner: infoGrupo.owner
+                    status: infoDb.status,
+                    owner: infoDb.owner
                 };
             });
 
@@ -49,29 +59,32 @@ const topPjsCommand = {
             }
 
             const start = (page - 1) * itemsPerPage;
-            const end = start + itemsPerPage;
-            const currentTop = allPjs.slice(start, end);
+            const currentTop = allPjs.slice(start, start + itemsPerPage);
 
-            let txt = `*${config.visuals.emoji3} \`RANKING DE PERSONAJES\` ${config.visuals.emoji3}*\n`;
-            txt += `*Página:* ${page} de ${totalPages}\n\n`;
+            let txt = `*${config.visuals.emoji3} \`RANKING DE PERSONAJES\` ${config.visuals.emoji3}*\n\n`;
+            txt += `*✰ Página »* ${page} de ${totalPages}\n\n`;
 
             let mentions = [];
             currentTop.forEach((pj, index) => {
                 const ranking = start + index + 1;
-                let statusText = 'Libre';
-                
-                if (pj.status !== 'libre' && pj.owner) {
-                    const ownerId = pj.owner.split('@')[0];
-                    statusText = `Domado por @${ownerId}`;
+                let statusText = '_Libre_';
+
+                if (pj.owner) {
+                    const ownerId = pj.owner.split('@')[0].split(':')[0];
+                    if (pj.status === 'en_venta') {
+                        statusText = `En el mercado (@${ownerId})`;
+                    } else {
+                        statusText = `Domado por @${ownerId}`;
+                    }
                     if (!mentions.includes(pj.owner)) mentions.push(pj.owner);
                 }
 
-                txt += `*${ranking}.* ${pj.name}\n`;
-                txt += `  > *Valor:* ¥${pj.value.toLocaleString()}\n`;
-                txt += `  > *Estado:* ${statusText}\n\n`;
+                txt += `*${ranking}.* ${pj.name} \`[${pj.id}]\`\n`;
+                txt += `  ᗒ *Valor:* $${pj.value.toLocaleString()} coins\n`;
+                txt += `  ᗒ *Estado:* ${statusText}\n\n`;
             });
 
-            txt += `> ¡Usa #rw para intentar conseguir a los mejores!`;
+            txt += `> ¡Usa .rw para intentar conseguir a los mejores de la lista!`;
 
             await conn.sendMessage(m.chat, { 
                 text: txt, 
