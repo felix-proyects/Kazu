@@ -6,7 +6,7 @@ export default function welcomeHandler(conn) {
         const { id, participants, action } = update;
 
         const dbChat = await database.getChat(id);
-        if (dbChat && dbChat.welcome === false) return;
+        if (dbChat && dbChat.welcome === 0) return;
 
         const metadata = await conn.groupMetadata(id).catch(() => null);
         if (!metadata) return;
