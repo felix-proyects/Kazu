@@ -5,7 +5,7 @@ export const detectHandler = (conn) => {
         try {
             const id = anu.id;
             const dbChat = await database.getChat(id);
-            if (dbChat && dbChat.detect === false) return;
+            if (dbChat && dbChat.detect === 0) return;
 
             const metadata = await conn.groupMetadata(id).catch(() => null);
             if (!metadata) return;
@@ -40,7 +40,7 @@ export const detectHandler = (conn) => {
 
         const id = m.key.remoteJid;
         const dbChat = await database.getChat(id);
-        if (dbChat && dbChat.detect === false) return;
+        if (dbChat && dbChat.detect === 0) return;
 
         const metadata = await conn.groupMetadata(id).catch(() => null);
         const participants = metadata ? metadata.participants.map(p => p.id) : [];
