@@ -5,6 +5,7 @@ const listWarnsCommand = {
     name: 'listwarns',
     alias: ['listwarn', 'warns'],
     category: 'grupo',
+    desc: 'Mira la lista de usuarios advertidos.',
     noPrefix: true,
     isGroup: true,
 
