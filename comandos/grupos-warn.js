@@ -15,14 +15,14 @@ const warnConfigCommand = {
 
         let dbChat = await database.getChat(m.chat);
         if (!dbChat) {
-            dbChat = { welcome: 1, antilink: 1, detect: 1 };
+            dbChat = { welcome: 1, antilink: 1, detect: 1, warn: 0 };
             await database.saveChat(m.chat, dbChat);
         }
 
         let action = args[0]?.toLowerCase();
 
         if (!action || !['on', 'off', 'reset'].includes(action)) {
-            let currentStatus = dbChat.warn === 1 ? 'Activado' : 'Desactivado';
+            let currentStatus = (dbChat.warn === 1) ? 'Activado' : 'Desactivado';
             let txt = `*✿︎ \`SISTEMA DE ADVERTENCIAS\` ✿︎*\n\n`;
             txt += `» *Estado actual:* \`${currentStatus}\`\n\n`;
             txt += `> ✰ Usa *warn on* para activar el sistema de 3 avisos antes del ban.\n`;
@@ -38,8 +38,8 @@ const warnConfigCommand = {
 
         const intValue = action === 'on' ? 1 : 0;
 
-        if (dbChat.warn === intValue) {
-            return m.reply(`*✿︎* El sistema de advertencias ya se encuentra ${intValue === 1 ? '*activada*' : '*desactivada*'}.`);
+        if ((dbChat.warn || 0) === intValue) {
+            return m.reply(`*✿︎* El sistema de advertencias ya se encuentra ${intValue === 1 ? '*activado*' : '*desactivado*'}.`);
         }
 
         await query("ALTER TABLE chats ADD COLUMN warn INTEGER DEFAULT 0").catch(() => {});
