@@ -114,7 +114,10 @@ export const database = {
         return db.prepare('SELECT * FROM chats WHERE jid = ?').get(j) || null;
     },
     saveChat: async (j, d) => {
-        const { welcome = 0, antilink = 0, detect = 0, warn = 0 } = d;
+        const welcome = d.welcome || 0;
+        const antilink = d.antilink || 0;
+        const detect = d.detect || 0;
+        const warn = d.warn || 0;
         db.prepare(`
             INSERT INTO chats (jid, welcome, antilink, detect, warn)
             VALUES (?, ?, ?, ?, ?)
