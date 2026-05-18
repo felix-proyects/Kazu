@@ -3,6 +3,7 @@ import { database } from '../database.js';
 const configCommand = {
     name: 'welcome',
     alias: ['antilink', 'detect', 'setup', 'config'],
+    category: 'grupos',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
