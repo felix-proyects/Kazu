@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { database } from '../database.js';
 
 const addCoins = {
     name: 'addcoins',
@@ -23,19 +24,20 @@ const addCoins = {
                 return m.reply(`*${config.visuals.emoji2}* \`Falta Usuario\` *${config.visuals.emoji2}*\n\nMenciona a alguien o responde a su mensaje.`);
             }
 
-            const targetJid = rawTarget.replace(/:.*@/g, '@');
+            const targetJid = rawTarget.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net';
             const monto = parseInt(args.find(arg => !isNaN(arg) && !arg.includes('@')));
 
             if (!monto || monto <= 0) {
                 return m.reply(`*${config.visuals.emoji2}* \`Monto Inválido\` *${config.visuals.emoji2}*\n\nIngresa una cantidad válida.`);
             }
 
-            if (!global.db.data.users[targetJid]) {
-                global.db.data.users[targetJid] = { wallet: 0, bank: 0 };
+            let userDb = await database.getUser(targetJid);
+            if (!userDb) {
+                userDb = { wallet: 0, bank: 0, genre: 'No definido', marry: null };
             }
 
-            const userDb = global.db.data.users[targetJid];
             userDb.bank = (userDb.bank || 0) + monto;
+            await database.saveUser(targetJid, userDb);
 
             const userId = targetJid.split('@')[0];
 
