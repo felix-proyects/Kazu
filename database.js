@@ -29,6 +29,9 @@ try {
 try {
     db.prepare("ALTER TABLE chats ADD COLUMN warn INTEGER DEFAULT 0").run();
 } catch (e) {}
+try {
+    db.prepare("ALTER TABLE users ADD COLUMN birthday TEXT DEFAULT NULL").run();
+} catch (e) {}
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -37,6 +40,7 @@ db.exec(`
         bank INTEGER DEFAULT 0,
         genre TEXT DEFAULT 'No definido',
         marry TEXT DEFAULT NULL,
+        birthday TEXT DEFAULT NULL,
         last_claim TEXT DEFAULT '1970-01-01T00:00:00.000Z',
         last_crime TEXT DEFAULT '1970-01-01T00:00:00.000Z',
         last_work TEXT DEFAULT '1970-01-01T00:00:00.000Z',
@@ -75,6 +79,19 @@ db.exec(`
         listed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (group_jid, character_id)
     );
+    CREATE TABLE IF NOT EXISTS rpg (
+        group_jid TEXT,
+        user_jid TEXT,
+        rank TEXT DEFAULT 'Novato de las Cuevas',
+        diamantes INTEGER DEFAULT 0,
+        rubies INTEGER DEFAULT 0,
+        oro INTEGER DEFAULT 0,
+        esmeraldas INTEGER DEFAULT 0,
+        zafiros INTEGER DEFAULT 0,
+        amatistas INTEGER DEFAULT 0,
+        perlas INTEGER DEFAULT 0,
+        PRIMARY KEY (group_jid, user_jid)
+    );
 `);
 
 const normalizeJid = (j) => j ? j.split('@')[0].split(':')[0].trim() + '@s.whatsapp.net' : null;
@@ -91,6 +108,7 @@ export const database = {
             bank = 0, 
             genre = 'No definido', 
             marry = null, 
+            birthday = null,
             last_claim = '1970-01-01T00:00:00.000Z',
             last_crime = '1970-01-01T00:00:00.000Z',
             last_work = '1970-01-01T00:00:00.000Z',
@@ -101,14 +119,14 @@ export const database = {
             last_claim_pj = '1970-01-01T00:00:00.000Z'
         } = d;
         db.prepare(`
-            INSERT INTO users (jid, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw, last_claim_pj)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (jid, wallet, bank, genre, marry, birthday, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw, last_claim_pj)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(jid) DO UPDATE SET
             wallet = excluded.wallet, bank = excluded.bank, genre = excluded.genre,
-            marry = excluded.marry, last_claim = excluded.last_claim, last_crime = excluded.last_crime,
+            marry = excluded.marry, birthday = excluded.birthday, last_claim = excluded.last_claim, last_crime = excluded.last_crime,
             last_work = excluded.last_work, last_slut = excluded.last_slut, last_flip = excluded.last_flip,
             last_rob = excluded.last_rob, last_rw = excluded.last_rw, last_claim_pj = excluded.last_claim_pj
-        `).run(c, wallet, bank, genre, marry, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw, last_claim_pj);
+        `).run(c, wallet, bank, genre, marry, birthday, last_claim, last_crime, last_work, last_slut, last_flip, last_rob, last_rw, last_claim_pj);
     },
     getChat: async (j) => {
         return db.prepare('SELECT * FROM chats WHERE jid = ?').get(j) || null;
