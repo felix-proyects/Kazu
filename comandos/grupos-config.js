@@ -4,6 +4,7 @@ const configCommand = {
     name: 'welcome',
     alias: ['antilink', 'detect', 'setup', 'config'],
     category: 'grupos',
+    desc: 'Configura el grupo con on/off',
     noPrefix: true,
 
     run: async (conn, m, args, usedPrefix, commandName, text) => {
