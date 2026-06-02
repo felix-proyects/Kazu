@@ -25,7 +25,7 @@ const doxeoCommand = {
     alias: ['doxeo', 'doxing'],
     category: 'tools',
     desc: 'Genera un doxeo ficticio y divertido de un usuario.',
-    noPrefix: false,
+    noPrefix: true,
 
     run: async (conn, m) => {
         try {
