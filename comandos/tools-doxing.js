@@ -1,6 +1,5 @@
 import { config } from '../config.js';
 
-// Diccionario simple para mapear prefijos telefónicos a países ficticios
 const countryCodes = {
     '34': { pais: 'España', ciudad: 'Madrid', region: 'Comunidad de Madrid' },
     '52': { pais: 'México', ciudad: 'Ciudad de México', region: 'CDMX' },
@@ -12,11 +11,11 @@ const countryCodes = {
     '58': { pais: 'Venezuela', ciudad: 'Caracas', region: 'Distrito Capital' },
     '1': { pais: 'Estados Unidos / Canadá', ciudad: 'Miami', region: 'Florida' },
     '1809': { pais: 'República Dominicana', ciudad: 'Santo Domingo', region: 'Distrito Nacional' },
-    '1829': { pais: 'República Dominicana', ciudad: 'Santo Domingo', region: 'Distrito Nacional' },
-    '1849': { pais: 'República Dominicana', ciudad: 'Santo Domingo', region: 'Distrito Nacional' }
+    '1829': { pais: 'República Dominicana', ciudad: 'Santo Domingo', region: 'San Cristóbal' },
+    '1849': { pais: 'República Dominicana', ciudad: 'Santo Domingo', region: 'Santiago' }
 };
 
-const operators = ['Claro', 'Movistar', 'Vodafone', 'Orange', 'Telcel', 'Personal', 'Tigo', 'Entel'];
+const operators = ['Claro', 'Movistar', 'Vodafone', 'Orange', 'Telcel', 'Personal', 'Tigo', 'Entel','Viva'];
 const names = ['Carlos', 'Sofía', 'Felipe', 'Alejandro', 'Mateo', 'Valentina', 'Diego', 'Camila', 'Sebastián', 'Mariana'];
 const lastNames = ['García', 'Rodríguez', 'López', 'Martínez', 'Pérez', 'Gómez', 'Sánchez', 'Fernández', 'Díaz', 'Alvarez'];
 
@@ -29,7 +28,6 @@ const doxeoCommand = {
 
     run: async (conn, m) => {
         try {
-            // 1. Determinar a quién va dirigido el comando
             let targetJid = '';
             
             if (m.mentionedJid && m.mentionedJid.length > 0) {
@@ -43,17 +41,13 @@ const doxeoCommand = {
                     text: `*${config.visuals.emoji2}* Debes etiquetar a alguien o responder a su mensaje para usar este comando.` 
                 }, { quoted: m });
             }
-
-            // 2. Extraer el número limpio
             const cleanNumber = targetJid.split('@')[0];
 
-            // Mensaje de carga / "Hackeando..."
             const loadingMsg = await conn.sendMessage(m.chat, { 
                 text: `*${config.visuals.emoji2}* \`Iniciando protocolo de extracción en @${cleanNumber}...\``,
                 mentions: [targetJid]
             }, { quoted: m });
 
-            // 3. Detectar país por prefijo telefónico
             let detectedCountry = { pais: 'Desconocido', ciudad: 'Desconocida', region: 'Desconocida' };
             
             for (const prefix in countryCodes) {
@@ -63,22 +57,18 @@ const doxeoCommand = {
                 }
             }
 
-            // 4. Generar datos totalmente aleatorios (Falsos)
             const randomName = `${names[Math.floor(Math.random() * names.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
             const randomIp = `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
             const randomDni = Math.floor(10000000 + Math.random() * 90000000);
             const randomAge = Math.floor(Math.random() * (45 - 14 + 1)) + 14; 
             const randomOperator = operators[Math.floor(Math.random() * operators.length)];
             
-            // Datos de la "esquina inferior" (Redes / Correos)
             const cleanNameForEmail = randomName.toLowerCase().replace(/\s+/g, '');
             const randomEmail = `${cleanNameForEmail}${Math.floor(Math.random() * 99)}@gmail.com`;
             const randomMac = Array.from({length: 6}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':').toUpperCase();
 
-            // Pequeña pausa dramática de 1.5 segundos para simular carga
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // 5. Estructurar el mensaje final
             const doxeoTemplate = `*${config.visuals.emoji3} ¡USUARIO DOXEARDO EXITOSAMENTE! ${config.visuals.emoji3}*
 
 *📡 DATOS GENERALES:*
@@ -108,7 +98,6 @@ const doxeoCommand = {
 
 > *Nota:* ${config.botName} no almacena ni realiza daños reales. Todo el contenido generado es 100% ficticio y con fines de entretenimiento.`;
 
-            // Editar el mensaje simulando que terminó el escaneo
             await conn.sendMessage(m.chat, { 
                 text: doxeoTemplate,
                 edit: loadingMsg.key,
